@@ -1,4 +1,4 @@
-name: Maven  CI
+name: Maven CI
 
 on:
   push:
@@ -8,8 +8,22 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_DB: mydatabase
+          POSTGRES_USER: myuser
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
@@ -23,3 +37,8 @@ jobs:
         
     - name: Build with Maven
       run: ./mvnw clean verify
+      env:
+        SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/mydatabase
+        SPRING_DATASOURCE_USERNAME: myuser
+        SPRING_DATASOURCE_PASSWORD: secret
+        SPRING_DOCKER_COMPOSE_ENABLED: false

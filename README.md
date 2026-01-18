@@ -1,53 +1,64 @@
-# KubeLite
+# Ork8stra
 
-A lightweight a self-hosted Platform-as-a-Service (PaaS) designed to simplify container-based application deployment. KubeLite provides an intuitive way to deploy and manage containerized applications without the complexity of full Kubernetes orchestration.
+An enterprise-grade Platform-as-a-Service (PaaS) designed to simplify container-based application deployment. Ork8stra provides an intuitive way to deploy and manage containerized applications with full CI/CD automation.
 
 ## 🏗️ Architecture
 
-KubeLite follows a **modular monolith** architecture using Spring Modulith, organized into distinct layers:
+Ork8stra follows a **Modular Monolith** architecture using Spring Modulith:
 
 ```
-src/main/java/com/kubelite/
-├── api/              # REST API controllers and endpoints
-├── application/      # Application services and use cases
-├── domain/           # Core business logic and entities
-└── infrastructure/   # External integrations and persistence
+com.ork8stra/
+├── auth/           # JWT Authentication & RBAC
+├── organization/   # Multi-tenancy (Organizations)
+├── user/           # User management
+├── project/        # Project grouping
+├── application/    # Deployable applications
+├── build/          # Kaniko-based image building
+├── deployment/     # K8s deployments
+├── messaging/      # RabbitMQ integration
+└── logging/        # Redis + MinIO log streaming
 ```
 
 ## 🛠️ Tech Stack
 
 | Category | Technology |
 |----------|------------|
-| **Language** | Java 21 |
-| **Framework** | Spring Boot 3.5 |
-| **Architecture** | Spring Modulith |
+| **Backend** | Spring Boot 3.5, Java 21 |
+| **Architecture** | Modular Monolith (Spring Modulith) |
 | **Database** | PostgreSQL |
-| **Real-time** | WebSocket |
-| **API** | REST |
-| **Build Tool** | Maven |
-| **Containerization** | Docker Compose |
+| **Message Broker** | RabbitMQ |
+| **Build Tool** | Kaniko |
+| **Log Streaming** | Redis |
+| **Log Archive** | MinIO |
+| **K8s Client** | Fabric8 |
+| **Auth** | JWT + RBAC |
 
 ## 📋 Prerequisites
 
 - **Java 21** or higher
 - **Docker** and **Docker Compose**
 - **Maven** 3.9+
+- **Kubernetes** (k3d, minikube, or Docker Desktop)
 
 ## 🚀 Getting Started
 
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd kubelite
+   cd ork8stra
    ```
 
-2. **Start the application**
+2. **Start infrastructure**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Run the application**
    ```bash
    ./mvnw spring-boot:run
    ```
-   > Docker Compose will automatically start PostgreSQL when the application runs (thanks to Spring Boot Docker Compose support).
 
-3. **Access the API**
+4. **Access the API**
    ```
    http://localhost:8080
    ```
@@ -58,24 +69,10 @@ src/main/java/com/kubelite/
 ./mvnw test
 ```
 
-## 📁 Project Structure
-
-```
-kubelite/
-├── src/
-│   ├── main/
-│   │   ├── java/com/kubelite/    # Application source code
-│   │   └── resources/             # Configuration files
-│   └── test/                      # Test files
-├── compose.yaml                   # Docker Compose configuration
-├── pom.xml                        # Maven dependencies
-└── README.md
-```
-
 ## 📄 License
 
-This project is part of a school final project.
+This project is a school final project with production aspirations.
 
 ---
 
-*KubeLite - Kubernetes complexity, minus the complexity.*
+*Ork8stra - Orchestrating your deployments with precision.*

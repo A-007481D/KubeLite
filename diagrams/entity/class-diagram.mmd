@@ -1,0 +1,144 @@
+classDiagram
+    direction TB
+
+    %% ============================================
+    %% ORGANIZATION & USERS
+    %% ============================================
+
+    class Organization {
+        +UUID id
+        +String name
+        +String slug
+        +Instant createdAt
+    }
+
+    class User {
+        +UUID id
+        +String email
+        +String passwordHash
+        +PlatformRole platformRole
+        +Instant createdAt
+    }
+
+    class OrganizationMembership {
+        +UUID userId
+        +UUID organizationId
+        +OrgRole role
+        +Instant joinedAt
+    }
+
+    class PlatformRole {
+        <<enumeration>>
+        ADMIN
+        USER
+    }
+
+    class OrgRole {
+        <<enumeration>>
+        OWNER
+        MEMBER
+        VIEWER
+    }
+
+    %% ============================================
+    %% PROJECTS & APPLICATIONS
+    %% ============================================
+
+    class Project {
+        +UUID id
+        +UUID organizationId
+        +String name
+        +String slug
+        +String k8sNamespace
+        +ProjectStatus status
+        +Instant createdAt
+    }
+
+    class Application {
+        +UUID id
+        +UUID projectId
+        +String name
+        +String gitRepoUrl
+        +String branch
+        +String dockerfilePath
+        +int internalPort
+        +Map~String,String~ envVars
+        +AppStatus status
+    }
+
+    class ProjectStatus {
+        <<enumeration>>
+        ACTIVE
+        SUSPENDED
+    }
+
+    class AppStatus {
+        <<enumeration>>
+        CREATED
+        BUILDING
+        DEPLOYED
+        FAILED
+    }
+
+    %% ============================================
+    %% BUILDS & DEPLOYMENTS
+    %% ============================================
+
+    class Build {
+        +UUID id
+        +UUID applicationId
+        +String commitHash
+        +String imageTag
+        +String kanikoPodName
+        +BuildStatus status
+        +String errorMessage
+        +Instant startedAt
+        +Instant completedAt
+    }
+
+    class Deployment {
+        +UUID id
+        +UUID applicationId
+        +UUID buildId
+        +String imageTag
+        +String ingressUrl
+        +int replicas
+        +DeploymentStatus status
+        +Instant deployedAt
+    }
+
+    class BuildStatus {
+        <<enumeration>>
+        QUEUED
+        BUILDING
+        PUSHING
+        SUCCESS
+        FAILED
+    }
+
+    class DeploymentStatus {
+        <<enumeration>>
+        PENDING
+        HEALTHY
+        UNHEALTHY
+        FAILED
+    }
+
+    %% ============================================
+    %% RELATIONSHIPS
+    %% ============================================
+
+    Organization "1" --> "*" OrganizationMembership : has
+    User "1" --> "*" OrganizationMembership : joins
+    Organization "1" --> "*" Project : owns
+    Project "1" --> "*" Application : contains
+    Application "1" --> "*" Build : triggers
+    Application "1" --> "0..1" Deployment : current
+    Build "1" --> "0..1" Deployment : produces
+
+    User ..> PlatformRole
+    OrganizationMembership ..> OrgRole
+    Project ..> ProjectStatus
+    Application ..> AppStatus
+    Build ..> BuildStatus
+    Deployment ..> DeploymentStatus

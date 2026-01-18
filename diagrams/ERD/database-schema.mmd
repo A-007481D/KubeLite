@@ -1,0 +1,100 @@
+erDiagram
+    %% ============================================
+    %% ORGANIZATIONS & USERS
+    %% ============================================
+    
+    organizations {
+        uuid id PK
+        varchar(100) name
+        varchar(100) slug UK
+        timestamp created_at
+    }
+
+    users {
+        uuid id PK
+        varchar(255) email UK
+        varchar(255) password_hash
+        varchar(20) platform_role "ADMIN | USER"
+        timestamp created_at
+    }
+
+    organization_memberships {
+        uuid user_id FK
+        uuid organization_id FK
+        varchar(20) role "OWNER | MEMBER | VIEWER"
+        timestamp joined_at
+    }
+
+    %% ============================================
+    %% PROJECTS & APPLICATIONS
+    %% ============================================
+    
+    projects {
+        uuid id PK
+        uuid organization_id FK
+        varchar(100) name
+        varchar(100) slug
+        varchar(63) k8s_namespace UK
+        varchar(20) status "ACTIVE | SUSPENDED"
+        timestamp created_at
+    }
+
+    applications {
+        uuid id PK
+        uuid project_id FK
+        varchar(100) name
+        varchar(500) git_repo_url
+        varchar(100) branch
+        varchar(255) dockerfile_path
+        int internal_port
+        varchar(20) status
+        timestamp created_at
+    }
+
+    application_env_vars {
+        uuid application_id FK
+        varchar(255) key
+        text value
+        boolean is_secret
+    }
+
+    %% ============================================
+    %% BUILDS & DEPLOYMENTS
+    %% ============================================
+    
+    builds {
+        uuid id PK
+        uuid application_id FK
+        varchar(40) commit_hash
+        varchar(255) image_tag
+        varchar(100) kaniko_pod_name
+        varchar(20) status "QUEUED | BUILDING | SUCCESS | FAILED"
+        text error_message
+        timestamp started_at
+        timestamp completed_at
+    }
+
+    deployments {
+        uuid id PK
+        uuid application_id FK
+        uuid build_id FK
+        varchar(255) image_tag
+        varchar(500) ingress_url
+        int replicas
+        varchar(20) status "PENDING | HEALTHY | UNHEALTHY"
+        timestamp deployed_at
+    }
+
+    %% ============================================
+    %% RELATIONSHIPS
+    %% ============================================
+    
+    organizations ||--o{ users : "via membership"
+    organizations ||--o{ organization_memberships : "has"
+    users ||--o{ organization_memberships : "joins"
+    organizations ||--o{ projects : "owns"
+    projects ||--o{ applications : "contains"
+    applications ||--o{ application_env_vars : "has"
+    applications ||--o{ builds : "triggers"
+    applications ||--o| deployments : "current"
+    builds ||--o| deployments : "produces"

@@ -1,0 +1,43 @@
+sequenceDiagram
+    autonumber
+    
+    participant User as 👤 Developer
+    participant API as 🧠 API Service
+    participant DB as 💾 PostgreSQL
+    participant MQ as 📬 RabbitMQ
+    participant Worker as 💪 Worker
+    participant K8s as ☸️ Kubernetes
+    participant Kaniko as 🐳 Kaniko
+    participant Registry as 📦 Registry
+    participant Redis as ⚡ Redis
+
+    Note over User,Redis: === TRIGGER DEPLOY ===
+    
+    User->>API: POST /api/apps/{id}/deploy
+    API->>DB: Create Build (QUEUED)
+    API->>MQ: Publish BuildRequestedEvent
+    API-->>User: 202 Accepted {buildId}
+    
+    Note over User,Redis: === BUILD PHASE ===
+    
+    MQ->>Worker: Consume event
+    Worker->>DB: Update Build (BUILDING)
+    Worker->>K8s: Create Kaniko Pod
+    
+    loop Stream Logs
+        Kaniko->>Worker: Pod logs
+        Worker->>Redis: PUBLISH logs
+        Redis-->>User: WebSocket
+    end
+    
+    Kaniko->>Registry: Push image
+    Worker->>DB: Update Build (SUCCESS)
+    
+    Note over User,Redis: === DEPLOY PHASE ===
+    
+    Worker->>K8s: Apply Deployment
+    Worker->>K8s: Apply Service
+    Worker->>K8s: Apply Ingress
+    Worker->>DB: Create Deployment (HEALTHY)
+    Worker->>Redis: PUBLISH complete
+    Redis-->>User: 🚀 Live at: app.project.ork8stra.local

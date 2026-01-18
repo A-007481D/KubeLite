@@ -1,0 +1,72 @@
+classDiagram
+    LR
+
+    %% Entities
+
+    class User {
+        - UUID id
+        - String user_name
+        - String email
+        - String password
+        - <<enumeration>>UserRole role
+        - TimeStamp created_at
+        - TimeStamp upadted_at
+ }
+
+    class Projects {
+        - UUID project_id
+        - String project_name
+        - String owner
+        - String source_location
+        - String source_branch
+        - String source_type
+        - String dockerfile_path
+        - String status
+        - timestamp created_at
+        - timestamp updated_at
+ }
+
+    class Builds {
+        - UUID id
+        - UUID project_id
+        - String build_status
+        - String build_pod_name
+        - String image_tag
+        - String logs
+        - String error_message
+        - timestamp started_at
+        - timestamp completed_at
+ }
+
+
+    class Deployments {
+        - UUID id
+        - UUID project_id
+        - UUID build_id
+        - String image_tag
+        - String service_url
+        - String cpu_limit
+        - String memory_limit
+        - bigint replicas
+        - bigint internal_port
+        - timestamp last_health_check
+        - timestamp deployed_at
+        - String status
+ }
+
+    %% Enumerations
+
+    class UserRole {
+        <<enumeration>>
+        ADMIN
+        USER
+ }
+
+
+    %% Relationships
+     User "1" -- "1..*" Projects : creates
+     Projects "1" --  "1..*" Builds : has
+     Builds "1" *-- "*" Deployments : contains
+
+
+
