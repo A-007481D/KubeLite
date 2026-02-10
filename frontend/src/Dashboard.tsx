@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/Card';
 import projectsApi from './api/projects';
-// import applicationsApi from './api/applications';
+import applicationsApi from './api/applications';
 
 export default function Dashboard() {
     const { user } = useAuth();
     const [projectCount, setProjectCount] = useState(0);
-    // const [appCount, setAppCount] = useState(0);
+    const [appCount, setAppCount] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -16,10 +16,13 @@ export default function Dashboard() {
                 const projects = await projectsApi.getAll();
                 setProjectCount(projects.length);
 
-                // TODO: potential N+1 query issue here if we fetch apps for every project
-                // for now kept simple
+                // Fetch apps concurrently for all projects
+                const appsPromises = projects.map(p => applicationsApi.getByProject(p.id));
+                const appsArrays = await Promise.all(appsPromises);
+                const totalApps = appsArrays.reduce((acc, curr) => acc + curr.length, 0);
+                setAppCount(totalApps);
             } catch (error) {
-                console.error('Failed to fetch stats', error);
+                console.error('Failed to fetch stats:', error);
             } finally {
                 setIsLoading(false);
             }
@@ -57,8 +60,7 @@ export default function Dashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-indigo-400">
-                            {/* {isLoading ? '...' : appCount} */}
-                            0
+                            {isLoading ? '...' : appCount}
                         </div>
                         <div className="text-xs text-[#666] mt-2">Deployed services</div>
                     </CardContent>
