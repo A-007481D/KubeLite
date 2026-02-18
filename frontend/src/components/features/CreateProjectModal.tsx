@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import projectsApi from '../../api/projects';
 import { useToast } from '../../contexts/ToastContext';
 import type { Project } from '../../types';
-import Button from '../ui/Button';
+import { Button } from '../ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
