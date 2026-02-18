@@ -25,7 +25,7 @@ export default function Register() {
 
             if (res.ok) {
                 const data = await res.json();
-                localStorage.setItem("token", data.token);
+                localStorage.setItem("token", data.accessToken);
                 navigate("/dashboard");
             } else {
                 setError("Failed to create account. Please try again.");

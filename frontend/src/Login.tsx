@@ -23,7 +23,7 @@ export default function Login() {
 
             if (res.ok) {
                 const data = await res.json();
-                localStorage.setItem("token", data.token);
+                localStorage.setItem("token", data.accessToken);
                 navigate("/dashboard");
             } else {
                 setError("Invalid email or password");
