@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Mail, Shield, Trash2 } from 'lucide-react';
 import { Button } from './ui/Button';
-import type { Organization } from '../types';
+import type { Organization } from '../types/index';
 
 interface Member {
     user_id: string;

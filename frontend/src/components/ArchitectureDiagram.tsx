@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
 import { motion } from "framer-motion";
-import { Box, Code2, Globe, Server, GitBranch, Database, Container, FileCode } from "lucide-react";
+import { Box, Code2, Globe, Server, Database, Container, FileCode } from "lucide-react";
 
 export default function ArchitectureDiagram() {
     return (

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, ChevronDown, Github } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Navbar() {

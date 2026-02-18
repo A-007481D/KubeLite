@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Plus, AlertTriangle, Terminal, GitBranch, Server } from 'lucide-react';
-import { Service } from '../types';
+import { useState, useEffect } from 'react';
+import { X, Trash2, Plus, AlertTriangle, Terminal, GitBranch, Server } from 'lucide-react';
+import type { Service } from '../types/index';
 import { Button } from './ui/Button';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface SettingsModalProps {
     isOpen: boolean;

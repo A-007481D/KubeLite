@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { GitBranch, Cpu, Box, Globe, Zap } from "lucide-react";
+import { GitBranch, Cpu, Box, Globe } from "lucide-react";
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 
@@ -99,7 +99,6 @@ const Gate = ({ index, icon, label, subLabel, color, glowColor }: any) => {
     useEffect(() => {
         // Sync with photon cycle (4s duration)
         const cycle = 4000;
-        const timePerSegment = cycle / 3;
         // Timing: Node 0 at 0s, Node 1 at 1.33s, Node 2 at 2.66s, Node 3 at 4s
         const activationTime = index * (cycle / 3);
 

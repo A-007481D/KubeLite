@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './ui/Button';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface CreateTeamModalProps {
     isOpen: boolean;

@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
-import { motion } from "framer-motion";
-import { ArrowRight, Terminal, Check, Copy } from "lucide-react";
+
+import { Terminal, Check, Copy } from "lucide-react";
 import { Link } from "react-router-dom";
 import DashboardPreview from "./DashboardPreview";
 import Navbar from "./Navbar";
@@ -56,7 +55,7 @@ export default function LandingPage() {
 
                     {/* Buttons */}
                     <div className="flex gap-4 pt-4">
-                        <Link href="/register" className="px-6 py-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors shadow-lg shadow-blue-900/20">
+                        <Link to="/register" className="px-6 py-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors shadow-lg shadow-blue-900/20">
                             Get Started
                         </Link>
                         <button className="px-6 py-3 rounded-md bg-transparent border border-white/10 hover:bg-white/5 text-slate-300 text-sm font-medium transition-colors">

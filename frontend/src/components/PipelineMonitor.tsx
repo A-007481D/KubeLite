@@ -2,20 +2,9 @@
 
 import { motion } from "framer-motion";
 import { HardDrive, Cpu, ShieldCheck, Globe, Activity } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import clsx from "clsx";
 
-const DUMMY_LOGS = [
-    "> INITIALIZING SYSTEM...",
-    "> CHECKING KERNEL...",
-    "> MOUNTING VOLUMES...",
-    "> ESTABLISHING LINK...",
-    "> VERIFYING HASH...",
-    "> PACKET RECEIVED.",
-    "> OPTIMIZING...",
-    "> DAEMON STARTING...",
-    "> SYNC COMPLETE.",
-];
 
 const PipelineMonitor = () => {
     const [step, setStep] = useState(0);
@@ -133,7 +122,7 @@ const PipelineMonitor = () => {
     );
 };
 
-const NodeCard = ({ title, icon, active, logs, position }: any) => {
+const NodeCard = ({ title, icon, active, logs }: any) => {
     const [logIndex, setLogIndex] = useState(0);
 
     useEffect(() => {

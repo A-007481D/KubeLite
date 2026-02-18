@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useCallback } from 'react';
 import ReactFlow, {
     Background,
     Controls,
@@ -11,15 +11,11 @@ import ReactFlow, {
     useEdgesState,
 } from 'reactflow';
 import type {
-    Node,
     Edge,
     NodeProps,
-    Connection,
-    EdgeChange,
-    NodeChange,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import type { Service } from '../types';
+import type { Service } from '../types/index';
 import { GitBranch, Server } from 'lucide-react';
 
 // --- Custom Node Component ---
@@ -80,25 +76,25 @@ interface ServiceGraphProps {
 
 export default function ServiceGraph({ services, onSelect }: ServiceGraphProps) {
     // Initial layout calculation
-    const getLayout = (list: Service[]) => {
+    const getLayout = useCallback((list: Service[]) => {
         return list.map((s, index) => ({
             id: s.id,
             type: 'serviceNode',
             position: { x: (index % 3) * 280, y: Math.floor(index / 3) * 180 }, // Spaced out grid
             data: { service: s, onSelect },
         }));
-    };
+    }, [onSelect]);
 
-    const initialNodes = useMemo(() => getLayout(services), [services, onSelect]);
+    const initialNodes = useMemo(() => getLayout(services), [services, getLayout]);
     const initialEdges: Edge[] = [];
 
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
     // Sync when services change
     useEffect(() => {
         setNodes(getLayout(services));
-    }, [services, setNodes]); // Added setNodes to deps
+    }, [services, setNodes, getLayout]);
 
     return (
         <div className="w-full h-full bg-[#050505] relative">

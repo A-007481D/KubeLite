@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 interface CreateOrganizationModalProps {
     isOpen: boolean;
     onClose: () => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onCreated: (newOrg: any) => void;
     token: string;
 }

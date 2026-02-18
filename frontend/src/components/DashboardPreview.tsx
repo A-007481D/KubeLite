@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, Server, GitCommit, Clock, CheckCircle2, AlertCircle, Terminal, Search } from "lucide-react";
+import { Activity, Server, GitCommit, Clock, AlertCircle, Terminal, Search } from "lucide-react";
 
 export default function DashboardPreview() {
     // Simulated live data
@@ -12,7 +12,7 @@ export default function DashboardPreview() {
     useEffect(() => {
         const interval = setInterval(() => {
             setReqs(prev => prev + Math.floor(Math.random() * 10));
-            setLatency(prev => 12 + Math.floor(Math.random() * 4) - 2);
+            setLatency(() => 12 + Math.floor(Math.random() * 4) - 2);
         }, 1000);
         return () => clearInterval(interval);
     }, []);
@@ -150,7 +150,7 @@ function MetricCard({ label, value, trend, icon, chartColor, isFlat }: any) {
     )
 }
 
-function DeploymentRow({ name, status, cpu, ram, uptime, isUpdating }: any) {
+function DeploymentRow({ name, cpu, ram, uptime, isUpdating }: any) {
     return (
         <div className="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer group">
             <div className="flex items-center gap-3">

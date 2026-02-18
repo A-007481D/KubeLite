@@ -3,10 +3,10 @@ import { useAuth } from './contexts/AuthContext';
 import { useToast } from './contexts/ToastContext';
 import projectsApi from './api/projects';
 import type { Project } from './types';
-import Button from './components/ui/Button';
+import { Button } from './components/ui/Button';
 import { Card } from './components/ui/Card';
 import { Badge } from './components/ui/Badge';
-import CreateProjectModal from './components/features/CreateProjectModal';
+import CreateProjectModal from './components/CreateProjectModal';
 import { ChevronRight } from 'lucide-react';
 
 export default function Projects() {
@@ -32,11 +32,6 @@ export default function Projects() {
         fetchProjects();
     }, []);
 
-    const handleCreateSuccess = (project: Project) => {
-        setProjects([...projects, project]);
-        setIsModalOpen(false);
-        showToast('success', `Project "${project.name}" created successfully`);
-    };
 
     return (
         <div className="p-10 md:p-14 min-h-full bg-[#0F0F0F] text-[#E3E3E3]">
@@ -86,7 +81,7 @@ export default function Projects() {
                             </div>
 
                             <div className="flex items-center gap-2 mt-auto border-t border-[#222] pt-3">
-                                <Button size="sm" variant="secondary" fullWidth className="bg-[#222] border-[#333] hover:bg-[#333] text-[#CCC]">
+                                <Button size="sm" variant="secondary" className="w-full bg-[#222] border-[#333] hover:bg-[#333] text-[#CCC]">
                                     View Details
                                 </Button>
                             </div>
@@ -97,8 +92,15 @@ export default function Projects() {
 
             {isModalOpen && (
                 <CreateProjectModal
+                    isOpen={isModalOpen}
+                    token=""
+                    teamID=""
                     onClose={() => setIsModalOpen(false)}
-                    onSuccess={handleCreateSuccess}
+                    onComplete={() => {
+                        setIsModalOpen(false);
+                        fetchProjects();
+                        showToast('success', `Project created successfully`);
+                    }}
                 />
             )}
         </div>

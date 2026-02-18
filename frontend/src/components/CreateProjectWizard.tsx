@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Check, CheckCircle, FolderGit2, Upload, Plus, ChevronRight, Loader2, Search, Layers, ArrowRight, Zap, Box, Server, Layout, Database, Cpu } from "lucide-react";
+import { X, Check, CheckCircle, FolderGit2, Upload, Plus, ChevronRight, Loader2, Search, Layers, Zap, Box, Server, Layout, Database, Cpu } from "lucide-react";
 
 interface WizardData {
     // Step 0: Project Context
@@ -149,7 +149,7 @@ export default function CreateServiceWizard({
     const [branches, setBranches] = useState<GitHubBranch[]>([]);
 
     // Loading State
-    const [loadingProjects, setLoadingProjects] = useState(false);
+    const [, setLoadingProjects] = useState(false);
     const [loadingRepos, setLoadingRepos] = useState(false);
     const [loadingBranches, setLoadingBranches] = useState(false);
 

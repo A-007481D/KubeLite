@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sparkles, Globe, Rewind, Share2, Scan, Zap } from "lucide-react";
+import { Sparkles, Globe, Rewind, Share2, Scan } from "lucide-react";
 import clsx from "clsx";
 
 const BentoGrid = () => {

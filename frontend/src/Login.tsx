@@ -1,111 +1,157 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-
-import { useAuth } from './contexts/AuthContext';
-import { useToast } from './contexts/ToastContext';
-import Button from './components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './components/ui/Card';
-import { Input } from './components/ui/Input';
-import { Label } from './components/ui/Label';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { Github, CheckCircle2, Loader2, Command } from "lucide-react";
 
 export default function Login() {
-    const { login, isLoading } = useAuth();
-    const { showToast } = useToast();
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
 
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!username || !password) {
-            showToast('error', 'Please enter both username and password');
-            return;
-        }
+        setLoading(true);
+        setError("");
 
-        setIsSubmitting(true);
         try {
-            await login({ username, password });
-            showToast('success', 'Welcome back to the cockpit');
-        } catch (err: any) {
-            const msg = err.response?.data?.message || 'Login failed. Check your credentials.';
-            showToast('error', msg);
-            setIsSubmitting(false);
+            const res = await fetch("http://localhost:8000/api/v1/auth/login", {
+                method: "POST",
+                body: JSON.stringify({ email, password }),
+                headers: { "Content-Type": "application/json" },
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                localStorage.setItem("token", data.token);
+                navigate("/dashboard");
+            } else {
+                setError("Invalid email or password");
+            }
+        } catch {
+            setError("Unable to connect to server");
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen w-full bg-[#050505] text-white font-sans flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="min-h-screen w-full bg-[#050505] text-white font-sans flex overflow-hidden">
 
-            {/* Background Decor similar to GOrk8stra login */}
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-600/5 blur-[100px] rounded-full pointer-events-none" />
+            {/* ---------------------------------------------------------------------------
+          LEFT SIDE: VISUAL & BRANDING
+         --------------------------------------------------------------------------- */}
+            <div className="hidden lg:flex w-1/2 bg-[#0B0C10] border-r border-white/5 flex-col justify-between p-12 relative overflow-hidden">
 
-            <Card className="w-full max-w-md border-white/10 bg-[#0B0C10] shadow-2xl">
-                <CardHeader className="text-center pb-6 space-y-4">
-                    <div className="mx-auto w-12 h-12 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">
+                {/* Background Decor */}
+                <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-600/5 blur-[100px] rounded-full pointer-events-none" />
+
+                {/* Brand Top */}
+                <Link to="/" className="flex items-center gap-2 z-10 w-fit hover:opacity-80 transition-opacity">
+                    <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">
                         O
                     </div>
-                    <div>
-                        <CardTitle className="text-2xl font-bold tracking-tight">
-                            Welcome back
-                        </CardTitle>
-                        <CardDescription className="text-slate-400 mt-2">
-                            Enter your credentials to access the flight deck.
-                        </CardDescription>
+                    <span className="text-xl font-bold tracking-tight text-white">
+                        ork8stra
+                    </span>
+                </Link>
+
+                {/* Quote/Testimonial Middle */}
+                <div className="relative z-10 max-w-md">
+                    <div className="mb-6 opacity-50">
+                        <Command className="w-10 h-10" />
                     </div>
-                </CardHeader>
+                    <blockquote className="text-2xl font-medium leading-relaxed tracking-tight mb-6 text-slate-200">
+                        "Ork8stra completely removed the friction from our deployment pipeline. It feels like cheating."
+                    </blockquote>
+                    <div>
+                        <div className="font-bold text-white">Sarah Jenkins</div>
+                        <div className="text-slate-500">Principal Engineer, Acme Corp</div>
+                    </div>
+                </div>
 
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="username">Username</Label>
-                            <Input
-                                id="username"
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                placeholder="Enter your username"
-                                required
-                                disabled={isSubmitting || isLoading}
-                            />
+                {/* Status Bottom */}
+                <div className="flex items-center gap-2 text-sm text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-full w-fit border border-emerald-500/20">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>All Systems Operational</span>
+                </div>
+            </div>
+
+
+            {/* ---------------------------------------------------------------------------
+          RIGHT SIDE: LOGIN FORM
+         --------------------------------------------------------------------------- */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative">
+
+                <div className="w-full max-w-sm space-y-8">
+
+                    <div className="text-center">
+                        <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome back</h1>
+                        <p className="text-slate-400">Enter your credentials to access the flight deck.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <button type="button" className="w-full bg-[#1A1C20] hover:bg-[#22242A] border border-white/10 text-white font-medium py-2.5 rounded-lg flex items-center justify-center gap-3 transition-all active:scale-95">
+                            <Github className="w-5 h-5" />
+                            Continue with GitHub
+                        </button>
+
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+                            <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#050505] px-2 text-slate-500">Or continue with email</span></div>
                         </div>
 
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <Label htmlFor="password">Password</Label>
-                                <a href="#" className="text-xs text-blue-400 hover:text-blue-300">Forgot password?</a>
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1.5">Email address</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full bg-[#0D0E12] border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                                    placeholder="engineer@company.com"
+                                    required
+                                />
                             </div>
-                            <Input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                required
-                                disabled={isSubmitting || isLoading}
-                            />
-                        </div>
+                            <div>
+                                <div className="flex justify-between items-center mb-1.5">
+                                    <label className="block text-sm font-medium text-slate-400">Password</label>
+                                    <a href="#" className="text-xs text-blue-400 hover:text-blue-300">Forgot password?</a>
+                                </div>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full bg-[#0D0E12] border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                                    placeholder="••••••••"
+                                    required
+                                />
+                            </div>
 
-                        <Button
-                            type="submit"
-                            fullWidth
-                            size="lg"
-                            isLoading={isSubmitting || isLoading}
-                            className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20"
-                        >
-                            Sign In
-                        </Button>
+                            {error && (
+                                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded text-red-500 text-xs font-medium text-center">
+                                    {error}
+                                </div>
+                            )}
 
-                        <div className="text-center text-sm text-slate-500 mt-4">
-                            Don't have an account?{' '}
-                            <Link to="/register" className="text-blue-400 hover:text-blue-300 transition-colors font-medium">
-                                Sign up
-                            </Link>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
+                            <button
+                                disabled={loading}
+                                type="submit"
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-all shadow-lg shadow-blue-900/20 active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}
+                            </button>
+                        </form>
+                    </div>
+
+                    <p className="text-center text-sm text-slate-500">
+                        Don't have an account? <Link to="/register" className="text-blue-400 hover:text-blue-300 transition-colors">Sign up</Link>
+                    </p>
+
+                </div>
+            </div>
+
         </div>
     );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
-import { Terminal, X, Minimize2, Maximize2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState, useRef } from "react";
+import { Terminal, X } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface LogViewerProps {
     deploymentId: string;

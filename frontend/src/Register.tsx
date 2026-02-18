@@ -1,144 +1,145 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-
-import { useAuth } from './contexts/AuthContext';
-import { useToast } from './contexts/ToastContext';
-import Button from './components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './components/ui/Card';
-import { Input } from './components/ui/Input';
-import { Label } from './components/ui/Label';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { ArrowLeft, Github, CheckCircle2, Loader2 } from "lucide-react";
 
 export default function Register() {
-    const { register, isLoading } = useAuth();
-    const { showToast } = useToast();
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
 
-    const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleRegister = (e: React.FormEvent) => {
         e.preventDefault();
-
-        if (!username || !email || !password || !confirmPassword) {
-            showToast('error', 'All fields are required');
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            showToast('error', 'Passwords do not match');
-            return;
-        }
-
-        if (password.length < 8) {
-            showToast('error', 'Password must be at least 8 characters');
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            await register({ username, email, password });
-            showToast('success', 'Account created! Welcome aboard.');
-        } catch (err: any) {
-            const msg = err.response?.data?.message || 'Registration failed. Try a different username.';
-            showToast('error', msg);
-            setIsSubmitting(false);
-        }
+        setLoading(true);
+        // Simulate API call
+        setTimeout(() => {
+            navigate("/dashboard");
+        }, 1500);
     };
 
     return (
-        <div className="min-h-screen w-full bg-[#050505] text-white font-sans flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="min-h-screen w-full bg-[#050505] text-white font-sans flex overflow-hidden">
 
-            {/* Background Decor */}
-            <div className="absolute top-[20%] right-[10%] w-[40%] h-[40%] rounded-full bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
-            <div className="absolute bottom-[10%] left-[10%] w-[30%] h-[30%] rounded-full bg-indigo-600/5 blur-[100px] rounded-full pointer-events-none" />
+            {/* ---------------------------------------------------------------------------
+          LEFT SIDE: VISUAL & BRANDING
+         --------------------------------------------------------------------------- */}
+            <div className="hidden lg:flex w-1/2 bg-[#0B0C10] border-r border-white/5 flex-col justify-between p-12 relative overflow-hidden">
 
-            <Card className="w-full max-w-lg border-white/10 bg-[#0B0C10] shadow-2xl">
-                <CardHeader className="text-center pb-6 space-y-2">
-                    <CardTitle className="text-2xl font-bold tracking-tight">
-                        Join <span className="text-blue-500">Ork8stra</span>
-                    </CardTitle>
-                    <CardDescription className="text-slate-400">
-                        Create your workspace and start deploying within seconds.
-                    </CardDescription>
-                </CardHeader>
+                {/* Background Decor */}
+                <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[120px] rounded-full pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-600/5 blur-[100px] rounded-full pointer-events-none" />
 
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="username">Username</Label>
-                            <Input
-                                id="username"
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                placeholder="jdoe"
-                                required
-                                disabled={isSubmitting || isLoading}
-                            />
+                {/* Brand Top */}
+                <Link to="/" className="flex items-center gap-2 z-10 w-fit hover:opacity-80 transition-opacity">
+                    <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">
+                        O
+                    </div>
+                    <span className="text-xl font-bold tracking-tight text-white">
+                        ork8stra
+                    </span>
+                </Link>
+
+                {/* Features Middle */}
+                <div className="relative z-10 max-w-md space-y-8">
+                    <h2 className="text-3xl font-bold tracking-tight">Join the modern era<br />of infrastructure.</h2>
+                    <div className="space-y-4">
+                        <FeatureRow text="Unlimited free deployments for hobbyists" />
+                        <FeatureRow text="Global edge network included" />
+                        <FeatureRow text="Automatic DDoS protection" />
+                        <FeatureRow text="Git-based workflows" />
+                    </div>
+                </div>
+
+                {/* Footer Bottom */}
+                <div className="text-sm text-slate-500">
+                    © 2026 Ork8stra Inc.
+                </div>
+            </div>
+
+
+            {/* ---------------------------------------------------------------------------
+          RIGHT SIDE: REGISTER FORM
+         --------------------------------------------------------------------------- */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative">
+
+                <Link to="/" className="absolute top-8 left-8 flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-sm">
+                    <ArrowLeft className="w-4 h-4" /> Back to Home
+                </Link>
+
+                <div className="w-full max-w-sm space-y-8">
+
+                    <div className="text-center">
+                        <h1 className="text-3xl font-bold tracking-tight mb-2">Create an account</h1>
+                        <p className="text-slate-400">Get started with your 14-day Pro trial.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <button className="w-full bg-[#1A1C20] hover:bg-[#22242A] border border-white/10 text-white font-medium py-2.5 rounded-lg flex items-center justify-center gap-3 transition-all active:scale-95">
+                            <Github className="w-5 h-5" />
+                            Sign up with GitHub
+                        </button>
+
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
+                            <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#050505] px-2 text-slate-500">Or sign up with email</span></div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="john@example.com"
-                                required
-                                disabled={isSubmitting || isLoading}
-                            />
-                        </div>
+                        <form onSubmit={handleRegister} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1.5">First name</label>
+                                    <input type="text" className="w-full bg-[#0D0E12] border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-1.5">Last name</label>
+                                    <input type="text" className="w-full bg-[#0D0E12] border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                                </div>
+                            </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="password">Password</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1.5">Email address</label>
+                                <input
+                                    type="email"
+                                    className="w-full bg-[#0D0E12] border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                                    placeholder="engineer@company.com"
                                     required
-                                    disabled={isSubmitting || isLoading}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1.5">Password</label>
+                                <input
+                                    type="password"
+                                    className="w-full bg-[#0D0E12] border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                                    placeholder="Min. 8 characters"
+                                    required
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="confirmPassword">Confirm</Label>
-                                <Input
-                                    id="confirmPassword"
-                                    type="password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    required
-                                    disabled={isSubmitting || isLoading}
-                                />
-                            </div>
-                        </div>
+                            <button
+                                disabled={loading}
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-all shadow-lg shadow-blue-900/20 active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Account"}
+                            </button>
+                        </form>
+                    </div>
 
-                        <Button
-                            type="submit"
-                            fullWidth
-                            size="lg"
-                            isLoading={isSubmitting || isLoading}
-                            className="bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 mt-2"
-                        >
-                            Create Account
-                        </Button>
+                    <p className="text-center text-sm text-slate-500">
+                        Already have an account? <Link to="/login" className="text-blue-400 hover:text-blue-300 transition-colors">Sign in</Link>
+                    </p>
 
-                        <div className="text-center text-sm text-slate-500 mt-4">
-                            Already have an account?{' '}
-                            <Link to="/login" className="text-blue-400 hover:text-blue-300 transition-colors font-medium">
-                                Sign In
-                            </Link>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
+
         </div>
     );
+}
+
+function FeatureRow({ text }: { text: string }) {
+    return (
+        <div className="flex items-center gap-3 text-slate-300">
+            <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400">
+                <CheckCircle2 className="w-3 h-3" />
+            </div>
+            <span>{text}</span>
+        </div>
+    )
 }
