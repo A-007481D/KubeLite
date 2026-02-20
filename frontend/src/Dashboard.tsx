@@ -298,15 +298,11 @@ const ServicesGrid = ({ services, onSelect, onAdd }: { services: Service[], onSe
     </div>
 );
 
-const ServiceDetail = ({ service, token, onUpdate }: { service: Service, token: string, onUpdate: () => void }) => {
+const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Service, token: string, onUpdate: () => void, onDelete: () => void }) => {
     const [logs, setLogs] = useState<string[]>([]);
     const [currentDeployment, setCurrentDeployment] = useState<Deployment | null>(null);
     const [deployments, setDeployments] = useState<Deployment[]>([]);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-    const handleDeleteComplete = () => {
-        window.location.reload();
-    };
 
 
 
@@ -534,7 +530,7 @@ const ServiceDetail = ({ service, token, onUpdate }: { service: Service, token: 
                         service={service}
                         token={token}
                         onUpdate={onUpdate}
-                        onDelete={handleDeleteComplete}
+                        onDelete={onDelete}
                     />
                 )}
             </AnimatePresence>
@@ -664,21 +660,31 @@ export default function Dashboard() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
-                const data: Service[] = await res.json();
-                // Mock status for UI demonstration until backend delivers it
-                const withStatus = data.map(s => ({
-                    ...s,
-                    status: s.name.includes('test') ? 'failed' : 'live'
-                })) as Service[];
-                setServices(withStatus);
+                const data: any[] = await res.json();
 
-                // If we are viewing a specific service, update its state too so the UI reflects changes
+                // Map backend ApplicationResponse to frontend Service interface
+                const mappedServices: Service[] = data.map(app => ({
+                    id: app.id,
+                    project_id: app.projectId,
+                    name: app.name,
+                    status: 'live', // Default until webhook status is implemented
+                    type: 'backend', // Default display type
+                    metrics: { cpu: 12, memory: 512 },
+                    domains: [],
+                    deployments: [],
+                    env: app.envVars || {},
+                    repo_url: app.gitRepoUrl,
+                    branch: app.buildBranch,
+                    created_at: new Date().toISOString()
+                }));
+
+                setServices(mappedServices);
+
+                // If viewing a specific service, sync its state
                 if (viewState.type === 'SERVICE') {
-                    const updatedCurrent = withStatus.find(s => s.id === viewState.service.id);
+                    const updatedCurrent = mappedServices.find(s => s.id === viewState.service.id);
                     if (updatedCurrent) {
-                        if (updatedCurrent) {
-                            setViewState(prev => prev.type === 'SERVICE' && prev.service.id === updatedCurrent.id ? { ...prev, service: updatedCurrent } : prev);
-                        }
+                        setViewState(prev => prev.type === 'SERVICE' && prev.service.id === updatedCurrent.id ? { ...prev, service: updatedCurrent } : prev);
                     }
                 }
             }
@@ -722,6 +728,23 @@ export default function Dashboard() {
     const handleProjectComplete = () => {
         setShowProjectModal(false);
         fetchProjects();
+    };
+
+    const handleDeleteComplete = async () => {
+        if (viewState.type !== 'SERVICE' || !token) return;
+        try {
+            const res = await fetch(`http://localhost:8080/api/v1/apps/${viewState.service.id}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                // Navigate back to project view and refresh list
+                setViewState({ type: 'PROJECT', project: viewState.project });
+                fetchServices();
+            }
+        } catch (e) {
+            console.error("Failed to delete application", e);
+        }
     };
 
     if (!token) return (
@@ -1019,7 +1042,7 @@ export default function Dashboard() {
                             )}
 
                             {viewState.type === 'SERVICE' && (
-                                <ServiceDetail service={viewState.service} token={token!} onUpdate={fetchServices} />
+                                <ServiceDetail service={viewState.service} token={token!} onUpdate={fetchServices} onDelete={handleDeleteComplete} />
                             )}
                         </>
                     )}

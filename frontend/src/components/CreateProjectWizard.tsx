@@ -350,21 +350,14 @@ export default function CreateServiceWizard({
                 return acc;
             }, {} as Record<string, string>);
 
-            const sRes = await fetch("http://localhost:8080/services", {
+            const sRes = await fetch(`http://localhost:8080/api/v1/projects/${finalProjectId}/apps`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    project_id: finalProjectId,
                     name: data.serviceName,
-                    type: data.serviceType,
-                    repo_url: data.repository,
-                    branch: data.branch,
-                    build_type: data.buildType,
-                    dockerfile_path: data.dockerfilePath,
-                    build_command: data.buildCommand,
-                    start_command: data.startCommand,
-                    port: parseInt(data.port) || 3000,
-                    env_vars: JSON.stringify(envVarMap),
+                    gitRepoUrl: data.repository,
+                    buildBranch: data.branch,
+                    envVars: envVarMap
                 }),
             });
 
