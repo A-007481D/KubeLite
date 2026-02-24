@@ -60,7 +60,7 @@ export default function SettingsModal({ isOpen, onClose, service, token, onUpdat
                 envVars: envObj
             };
 
-            const res = await fetch(`http://localhost:8080/api/v1/apps/${service.id}`, {
+            const res = await fetch(`/api/v1/apps/${service.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

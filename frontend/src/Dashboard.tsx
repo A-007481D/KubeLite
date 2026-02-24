@@ -308,7 +308,7 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
 
     const fetchData = useCallback(async () => {
         try {
-            const res = await fetch(`http://localhost:8080/api/v1/apps/${service.id}/build`, {
+            const res = await fetch(`/api/v1/apps/${service.id}/build`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -346,7 +346,7 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
         setLogs([]); // Clear logs when switching deployments
 
         // Native SSE Integration
-        const url = `http://localhost:8080/api/v1/apps/${service.id}/build/${currentDeployment.id}/logs`;
+        const url = `/api/v1/apps/${service.id}/build/${currentDeployment.id}/logs`;
         const eventSource = new EventSource(url);
 
         eventSource.onmessage = (event) => {
@@ -380,7 +380,7 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
             const formData = new FormData();
             formData.append("service_id", service.id);
 
-            const res = await fetch("http://localhost:8080/api/v1/deployments", {
+            const res = await fetch("/api/v1/deployments", {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}` },
                 body: formData
@@ -634,7 +634,7 @@ export default function Dashboard() {
     const fetchOrgs = useCallback(async () => {
         if (!token) return;
         try {
-            const res = await fetch("http://localhost:8080/api/v1/orgs", { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetch("/api/v1/orgs", { headers: { Authorization: `Bearer ${token}` } });
             if (res.ok) {
                 const data = await res.json() || [];
                 setOrgs(data);
@@ -649,7 +649,7 @@ export default function Dashboard() {
     const fetchTeams = useCallback(async () => {
         if (!token || !currentOrg) return;
         try {
-            const res = await fetch(`http://localhost:8080/api/v1/teams`, {
+            const res = await fetch(`/api/v1/teams`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "X-Org-ID": currentOrg.id
@@ -673,7 +673,7 @@ export default function Dashboard() {
     const fetchProjects = useCallback(async () => {
         if (!token || !currentTeam) return;
         try {
-            const res = await fetch(`http://localhost:8080/api/v1/projects?teamId=${currentTeam.id}`, {
+            const res = await fetch(`/api/v1/projects?teamId=${currentTeam.id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) setProjects(await res.json());
@@ -685,7 +685,7 @@ export default function Dashboard() {
         if (!token || (viewState.type !== 'PROJECT' && viewState.type !== 'SERVICE')) return;
         const projectId = viewState.type === 'PROJECT' ? viewState.project.id : viewState.project.id;
         try {
-            const res = await fetch(`http://localhost:8080/api/v1/projects/${projectId}/apps`, {
+            const res = await fetch(`/api/v1/projects/${projectId}/apps`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -762,7 +762,7 @@ export default function Dashboard() {
     const handleDeleteComplete = async () => {
         if (viewState.type !== 'SERVICE' || !token) return;
         try {
-            const res = await fetch(`http://localhost:8080/api/v1/apps/${viewState.service.id}`, {
+            const res = await fetch(`/api/v1/apps/${viewState.service.id}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` }
             });
