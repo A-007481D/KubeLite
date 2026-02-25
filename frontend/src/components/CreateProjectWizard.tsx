@@ -236,7 +236,7 @@ export default function CreateServiceWizard({
         if (!teamId) return;
         setLoadingProjects(true);
         try {
-            const res = await fetch(`/api/v1/projects?team_id=${teamId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetch(`/api/v1/projects?teamId=${teamId}`, { headers: { Authorization: `Bearer ${token}` } });
             if (res.ok) {
                 const p = await res.json();
                 setExistingProjects(p || []);
