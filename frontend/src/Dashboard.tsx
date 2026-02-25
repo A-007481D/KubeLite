@@ -18,6 +18,7 @@ import CreateOrganizationModal from "./components/CreateOrganizationModal";
 import ServiceGraph from "./components/ServiceGraph";
 import SettingsMembers from "./components/SettingsMembers";
 import SettingsModal from "./components/SettingsModal";
+import GlobalDashboard from "./pages/GlobalDashboard";
 import { AnimatePresence, motion } from "framer-motion";
 
 // UI Components
@@ -876,7 +877,8 @@ export default function Dashboard() {
 
                     {/* Navigation */}
                     <div className="space-y-0.5">
-                        <SidebarItem icon={Layers} label="Projects" active={viewState.type !== 'SETTINGS'} collapsed={!isSidebarOpen} onClick={() => setViewState({ type: 'ROOT' })} />
+                        <SidebarItem icon={Building2} label="Platform Overview" active={viewState.type === 'ROOT' && !currentTeam} collapsed={!isSidebarOpen} onClick={() => { setCurrentTeam(null); setViewState({ type: 'ROOT' }); }} />
+                        <SidebarItem icon={Layers} label="Projects" active={viewState.type !== 'SETTINGS' && currentTeam} collapsed={!isSidebarOpen} onClick={() => setViewState({ type: 'ROOT' })} />
                         <SidebarItem icon={Inbox} label="Notifications" collapsed={!isSidebarOpen} />
                         <SidebarItem icon={Activity} label="Activity" collapsed={!isSidebarOpen} />
                         <SidebarItem icon={Bell} label="Alerts" collapsed={!isSidebarOpen} />
@@ -1051,7 +1053,10 @@ export default function Dashboard() {
                             )}
 
                             {/* Views */}
-                            {viewState.type === 'ROOT' && viewMode === 'GRID' && (
+                            {viewState.type === 'ROOT' && viewMode === 'GRID' && !currentTeam && (
+                                <GlobalDashboard />
+                            )}
+                            {viewState.type === 'ROOT' && viewMode === 'GRID' && currentTeam && (
                                 <ProjectsGrid projects={filteredProjects} onSelect={handleProjectSelect} />
                             )}
                             {viewState.type === 'PROJECT' && viewMode === 'GRID' && (
