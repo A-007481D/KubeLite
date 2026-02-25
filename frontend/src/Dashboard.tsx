@@ -1064,7 +1064,7 @@ export default function Dashboard() {
 
                             {/* Views */}
                             {viewState.type === 'GLOBAL' && viewMode === 'GRID' && (
-                                <GlobalDashboard />
+                                <GlobalDashboard org={currentOrg} />
                             )}
                             {viewState.type === 'ROOT' && viewMode === 'GRID' && (
                                 <ProjectsGrid projects={filteredProjects} onSelect={handleProjectSelect} />

@@ -5,11 +5,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card"
 import type { Organization, Team, Project, Service } from "../types/index";
 import { motion } from "framer-motion";
 
-export default function GlobalDashboard() {
+interface GlobalDashboardProps {
+    org: Organization | null;
+}
+
+export default function GlobalDashboard({ org }: GlobalDashboardProps) {
     const navigate = useNavigate();
     const [token] = useState(localStorage.getItem("token") || "");
-    const [orgs, setOrgs] = useState<Organization[]>([]);
-    const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
     const [teams, setTeams] = useState<Team[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [services, setServices] = useState<Service[]>([]);
@@ -23,24 +25,18 @@ export default function GlobalDashboard() {
     // Deep Fetch Sequence
     const fetchPlatformData = useCallback(async () => {
         if (!token) return;
+        if (!org) {
+            setTeams([]);
+            setProjects([]);
+            setServices([]);
+            setIsLoading(false);
+            return;
+        }
         setIsLoading(true);
         try {
-            // 1. Get Orgs
-            const orgsRes = await fetch("/api/v1/orgs", { headers: { Authorization: `Bearer ${token}` } });
-            if (!orgsRes.ok) throw new Error("Failed to fetch orgs");
-            const orgsData = await orgsRes.json();
-            setOrgs(orgsData);
-
-            if (orgsData.length === 0) {
-                setIsLoading(false);
-                return;
-            }
-            const activeOrg = orgsData[0];
-            setCurrentOrg(activeOrg);
-
-            // 2. Get Teams
+            // 1. Get Teams for the active Org
             const teamsRes = await fetch("/api/v1/teams", {
-                headers: { Authorization: `Bearer ${token}`, "X-Org-ID": activeOrg.id }
+                headers: { Authorization: `Bearer ${token}`, "X-Org-ID": org.id }
             });
             if (!teamsRes.ok) throw new Error("Failed to fetch teams");
             const teamsData: Team[] = await teamsRes.json();
@@ -76,7 +72,7 @@ export default function GlobalDashboard() {
         } finally {
             setIsLoading(false);
         }
-    }, [token]);
+    }, [token, org]);
 
     useEffect(() => {
         fetchPlatformData();
@@ -92,7 +88,7 @@ export default function GlobalDashboard() {
 
     const itemVariants = {
         hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 24 } }
+        visible: { y: 0, opacity: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
     };
 
     if (isLoading) {
@@ -110,7 +106,7 @@ export default function GlobalDashboard() {
         );
     }
 
-    if (orgs.length === 0) {
+    if (!org) {
         return (
             <div className="flex-1 h-full bg-[#050505] flex flex-col items-center justify-center p-8 text-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-5" />
@@ -154,7 +150,7 @@ export default function GlobalDashboard() {
                             <span className="text-xs font-mono text-[#555]">{new Date().toISOString().split('T')[0]}</span>
                         </div>
                         <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-500 tracking-tight flex items-center gap-4">
-                            {currentOrg?.name} Global Telemetry
+                            {org?.name} Global Telemetry
                         </h1>
                         <p className="text-[#888] mt-2 text-sm max-w-2xl leading-relaxed">
                             Aggregated metrics and live operational status across all provisioned Kubernetes clusters, isolated teams, and active container workloads.
