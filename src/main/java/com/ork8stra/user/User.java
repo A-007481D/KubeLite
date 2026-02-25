@@ -49,6 +49,12 @@ public class User {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @Column(name = "github_username", length = 100)
+    private String githubUsername;
+
+    @Column(name = "github_access_token", length = 500)
+    private String githubAccessToken;
+
     @Column(name = "enabled", nullable = false)
     @Builder.Default
     private boolean enabled = true;
@@ -67,7 +73,7 @@ public class User {
     public boolean hasRole(PlatformRole role) {
         return roles.contains(role);
     }
-    
+
     public boolean isAdmin() {
         return hasRole(PlatformRole.ADMIN);
     }
