@@ -131,6 +131,7 @@ export default function CreateServiceWizard({
     token,
     teamId,
     initialServiceType,
+    initialProjectId,
 }: {
     isOpen: boolean;
     onClose: () => void;
@@ -138,8 +139,9 @@ export default function CreateServiceWizard({
     token: string;
     teamId: string;
     initialServiceType?: "backend" | "frontend" | "database" | "worker";
+    initialProjectId?: string;
 }) {
-    const [step, setStep] = useState(0);
+    const [step, setStep] = useState(initialProjectId ? 1 : 0);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Data State
@@ -158,7 +160,7 @@ export default function CreateServiceWizard({
     const [showBranchDropdown, setShowBranchDropdown] = useState(false);
 
     const [data, setData] = useState<WizardData>({
-        projectId: null,
+        projectId: initialProjectId || null,
         isNewProject: false,
         newProjectName: "",
 
@@ -228,7 +230,8 @@ export default function CreateServiceWizard({
     };
 
     const handleBack = () => {
-        if (step > 0) setStep(step - 1);
+        const minStep = initialProjectId ? 1 : 0;
+        if (step > minStep) setStep(step - 1);
     };
 
     // --- Data Fetching ---
@@ -236,7 +239,7 @@ export default function CreateServiceWizard({
         if (!teamId) return;
         setLoadingProjects(true);
         try {
-            const res = await fetch(`/api/v1/projects?team_id=${teamId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetch(`/api/v1/projects?teamId=${teamId}`, { headers: { Authorization: `Bearer ${token}` } });
             if (res.ok) {
                 const p = await res.json();
                 setExistingProjects(p || []);
