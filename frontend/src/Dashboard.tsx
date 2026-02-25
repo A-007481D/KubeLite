@@ -167,43 +167,53 @@ const ViewToolbar = ({ sortBy, onSortToggle, filterMode, onFilterChange, viewMod
     );
 };
 
-const Breadcrumbs = ({ viewState, onNavigate }: { viewState: ViewState, onNavigate: (v: ViewState) => void }) => (
-    <div className="flex items-center gap-2 text-sm text-[#888] h-full">
-        <div
-            className="hover:text-[#E3E3E3] hover:bg-[#1F1F1F] px-2 py-1 rounded cursor-pointer transition-colors flex items-center gap-2"
-            onClick={() => onNavigate({ type: 'ROOT' })}
-        >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Projects</span>
+const Breadcrumbs = ({ viewState, onNavigate }: { viewState: ViewState, onNavigate: (v: ViewState) => void }) => {
+    if (viewState.type === 'GLOBAL') {
+        return (
+            <div className="flex items-center gap-2 text-sm text-[#E3E3E3] h-full">
+                <Building2 className="w-4 h-4 text-[#888]" />
+                <span className="font-semibold tracking-wide">Platform Overview</span>
+            </div>
+        );
+    }
+    return (
+        <div className="flex items-center gap-2 text-sm text-[#888] h-full">
+            <div
+                className="hover:text-[#E3E3E3] hover:bg-[#1F1F1F] px-2 py-1 rounded cursor-pointer transition-colors flex items-center gap-2"
+                onClick={() => onNavigate({ type: 'ROOT' })}
+            >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Projects</span>
+            </div>
+
+            {viewState.type !== 'ROOT' && viewState.type !== 'SETTINGS' && (
+                <>
+                    <ChevronRight className="w-3.5 h-3.5 text-[#444]" />
+                    <div
+                        className={`px-2 py-1 rounded transition-colors flex items-center gap-2 ${viewState.type === 'PROJECT'
+                            ? 'bg-[#1F1F1F] text-[#E3E3E3]'
+                            : 'hover:text-[#E3E3E3] hover:bg-[#1F1F1F] cursor-pointer'
+                            }`}
+                        onClick={() => viewState.type === 'SERVICE' && onNavigate({ type: 'PROJECT', project: viewState.project })}
+                    >
+                        {viewState.type === 'PROJECT' ? <Box className="w-3.5 h-3.5" /> : null}
+                        <span>{(viewState.type === 'PROJECT' || viewState.type === 'SERVICE') ? viewState.project.name : ''}</span>
+                    </div>
+                </>
+            )}
+
+            {viewState.type === 'SERVICE' && (
+                <>
+                    <ChevronRight className="w-3.5 h-3.5 text-[#444]" />
+                    <div className="px-2 py-1 rounded bg-[#1F1F1F] text-[#E3E3E3] flex items-center gap-2">
+                        <Server className="w-3.5 h-3.5" />
+                        <span>{viewState.service.name}</span>
+                    </div>
+                </>
+            )}
         </div>
-
-        {viewState.type !== 'ROOT' && viewState.type !== 'SETTINGS' && (
-            <>
-                <ChevronRight className="w-3.5 h-3.5 text-[#444]" />
-                <div
-                    className={`px-2 py-1 rounded transition-colors flex items-center gap-2 ${viewState.type === 'PROJECT'
-                        ? 'bg-[#1F1F1F] text-[#E3E3E3]'
-                        : 'hover:text-[#E3E3E3] hover:bg-[#1F1F1F] cursor-pointer'
-                        }`}
-                    onClick={() => viewState.type === 'SERVICE' && onNavigate({ type: 'PROJECT', project: viewState.project })}
-                >
-                    {viewState.type === 'PROJECT' ? <Box className="w-3.5 h-3.5" /> : null}
-                    <span>{(viewState.type === 'PROJECT' || viewState.type === 'SERVICE') ? viewState.project.name : ''}</span>
-                </div>
-            </>
-        )}
-
-        {viewState.type === 'SERVICE' && (
-            <>
-                <ChevronRight className="w-3.5 h-3.5 text-[#444]" />
-                <div className="px-2 py-1 rounded bg-[#1F1F1F] text-[#E3E3E3] flex items-center gap-2">
-                    <Server className="w-3.5 h-3.5" />
-                    <span>{viewState.service.name}</span>
-                </div>
-            </>
-        )}
-    </div>
-);
+    );
+};
 
 // --- VIEW COMPONENTS ---
 
@@ -573,7 +583,7 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
 export default function Dashboard() {
     const navigate = useNavigate();
     const [token, setToken] = useState<string | null>(null);
-    const [viewState, setViewState] = useState<ViewState>({ type: 'ROOT' });
+    const [viewState, setViewState] = useState<ViewState>({ type: 'GLOBAL' });
     const [viewMode, setViewMode] = useState<'GRID' | 'GRAPH'>('GRID');
     const [showServiceWizard, setShowServiceWizard] = useState(false);
     const [showProjectModal, setShowProjectModal] = useState(false);
@@ -841,7 +851,7 @@ export default function Dashboard() {
                                                     setCurrentOrg(org);
                                                     setCurrentTeam(null);
                                                     setProjects([]);
-                                                    setViewState({ type: 'ROOT' });
+                                                    setViewState({ type: 'GLOBAL' });
                                                     setIsTeamDropdownOpen(false);
                                                 }}
                                                 className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-[#1A1A1A] transition-colors ${currentOrg?.id === org.id ? 'text-white bg-[#1A1A1A]' : 'text-[#888]'}`}
@@ -877,8 +887,8 @@ export default function Dashboard() {
 
                     {/* Navigation */}
                     <div className="space-y-0.5">
-                        <SidebarItem icon={Building2} label="Platform Overview" active={viewState.type === 'ROOT' && !currentTeam} collapsed={!isSidebarOpen} onClick={() => { setCurrentTeam(null); setViewState({ type: 'ROOT' }); }} />
-                        <SidebarItem icon={Layers} label="Projects" active={viewState.type !== 'SETTINGS' && currentTeam} collapsed={!isSidebarOpen} onClick={() => setViewState({ type: 'ROOT' })} />
+                        <SidebarItem icon={Building2} label="Platform Overview" active={viewState.type === 'GLOBAL'} collapsed={!isSidebarOpen} onClick={() => { setCurrentTeam(null); setViewState({ type: 'GLOBAL' }); }} />
+                        <SidebarItem icon={Layers} label="Projects" active={viewState.type === 'ROOT' || viewState.type === 'PROJECT' || viewState.type === 'SERVICE'} collapsed={!isSidebarOpen} onClick={() => setViewState({ type: 'ROOT' })} />
                         <SidebarItem icon={Inbox} label="Notifications" collapsed={!isSidebarOpen} />
                         <SidebarItem icon={Activity} label="Activity" collapsed={!isSidebarOpen} />
                         <SidebarItem icon={Bell} label="Alerts" collapsed={!isSidebarOpen} />
@@ -1017,7 +1027,7 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        {viewState.type === 'ROOT' && (
+                        {(viewState.type === 'ROOT' || viewState.type === 'GLOBAL') && (
                             <Button onClick={() => setShowProjectModal(true)} size="sm" className="bg-white text-black hover:bg-white/90 shadow-md flex items-center gap-1.5 font-medium">
                                 <Plus className="w-4 h-4" />
                                 New Project
@@ -1041,7 +1051,7 @@ export default function Dashboard() {
                     ) : (
                         <>
                             {/* Toolbar (Only for Lists) */}
-                            {viewState.type !== 'SERVICE' && (
+                            {viewState.type !== 'SERVICE' && viewState.type !== 'GLOBAL' && (
                                 <ViewToolbar
                                     sortBy={sortBy}
                                     onSortToggle={() => setSortBy(s => s === 'Date' ? 'Name' : 'Date')}
@@ -1053,10 +1063,10 @@ export default function Dashboard() {
                             )}
 
                             {/* Views */}
-                            {viewState.type === 'ROOT' && viewMode === 'GRID' && !currentTeam && (
-                                <GlobalDashboard />
+                            {viewState.type === 'GLOBAL' && viewMode === 'GRID' && (
+                                <GlobalDashboard org={currentOrg} />
                             )}
-                            {viewState.type === 'ROOT' && viewMode === 'GRID' && currentTeam && (
+                            {viewState.type === 'ROOT' && viewMode === 'GRID' && (
                                 <ProjectsGrid projects={filteredProjects} onSelect={handleProjectSelect} />
                             )}
                             {viewState.type === 'PROJECT' && viewMode === 'GRID' && (
@@ -1064,7 +1074,7 @@ export default function Dashboard() {
                             )}
 
                             {/* Service Graph View */}
-                            {((viewState.type === 'PROJECT' && viewMode === 'GRAPH') || (viewState.type === 'ROOT' && viewMode === 'GRAPH')) && (
+                            {((viewState.type === 'PROJECT' && viewMode === 'GRAPH') || (viewState.type === 'ROOT' && viewMode === 'GRAPH') || (viewState.type === 'GLOBAL' && viewMode === 'GRAPH')) && (
                                 <div className="h-[calc(100vh-140px)] px-6 pb-6">
                                     <div className="w-full h-full border border-[#242424] rounded-lg overflow-hidden relative bg-[#0A0A0A]">
                                         <ServiceGraph
