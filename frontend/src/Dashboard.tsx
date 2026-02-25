@@ -1051,7 +1051,7 @@ export default function Dashboard() {
                     ) : (
                         <>
                             {/* Toolbar (Only for Lists) */}
-                            {viewState.type !== 'SERVICE' && (
+                            {viewState.type !== 'SERVICE' && viewState.type !== 'GLOBAL' && (
                                 <ViewToolbar
                                     sortBy={sortBy}
                                     onSortToggle={() => setSortBy(s => s === 'Date' ? 'Name' : 'Date')}

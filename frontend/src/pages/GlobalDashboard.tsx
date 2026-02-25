@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, Layers, Box, TrendingUp, Activity, Server, Database, Globe, ArrowRight, Zap, ShieldCheck } from "lucide-react";
+import { Layers, Box, TrendingUp, Activity, Server, Database, Globe, ArrowRight, Zap, ShieldCheck } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/Card";
 import type { Organization, Team, Project, Service } from "../types/index";
 import { motion } from "framer-motion";
@@ -93,7 +93,7 @@ export default function GlobalDashboard({ org }: GlobalDashboardProps) {
 
     if (isLoading) {
         return (
-            <div className="flex-1 h-full bg-[#050505] flex flex-col items-center justify-center">
+            <div className="flex flex-col min-h-full w-full bg-[#050505] items-center justify-center">
                 <div className="relative w-16 h-16">
                     <div className="absolute inset-0 rounded-full border-t-2 border-emerald-500 animate-spin" />
                     <div className="absolute inset-2 rounded-full border-r-2 border-blue-500 animate-spin animation-delay-150" />
@@ -108,7 +108,7 @@ export default function GlobalDashboard({ org }: GlobalDashboardProps) {
 
     if (!org) {
         return (
-            <div className="flex-1 h-full bg-[#050505] flex flex-col items-center justify-center p-8 text-center relative overflow-hidden">
+            <div className="flex flex-col min-h-full w-full bg-[#050505] items-center justify-center p-8 text-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-5" />
                 <motion.div
                     initial={{ scale: 0.9, opacity: 0 }}
@@ -129,7 +129,7 @@ export default function GlobalDashboard({ org }: GlobalDashboardProps) {
     }
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-[#050505] relative overflow-y-auto custom-scrollbar">
+        <div className="flex flex-col min-h-full w-full bg-[#050505] relative overflow-hidden">
             {/* Premium Animated Backgrounds */}
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-600/10 blur-[120px] rounded-full mix-blend-screen pointer-events-none" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full mix-blend-screen pointer-events-none" />
