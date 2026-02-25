@@ -35,3 +35,9 @@ app:
     secret: ${JWT_SECRET:your_jwt_secret_key_base64}
     expiration-ms: 86400000
     issuer: ork8stra
+
+# oauth conf
+oauth2:
+  github:
+    client-id: ${GITHUB_CLIENT_ID:}
+    client-secret: ${GITHUB_CLIENT_SECRET:}
