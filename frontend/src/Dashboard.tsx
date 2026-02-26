@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import type { Project, Service, Deployment, ViewState, Team, Organization } from "./types/index";
 import {
     Search, Plus, Bell, ChevronDown, ChevronRight,
@@ -19,6 +18,7 @@ import ServiceGraph from "./components/ServiceGraph";
 import SettingsMembers from "./components/SettingsMembers";
 import SettingsModal from "./components/SettingsModal";
 import GlobalDashboard from "./pages/GlobalDashboard";
+import { useAuth } from "./contexts/AuthContext";
 import { AnimatePresence, motion } from "framer-motion";
 
 // UI Components
@@ -581,8 +581,7 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
 // --- MAIN PAGE ---
 
 export default function Dashboard() {
-    const navigate = useNavigate();
-    const [token, setToken] = useState<string | null>(null);
+    const { token, logout } = useAuth();
     const [viewState, setViewState] = useState<ViewState>({ type: 'GLOBAL' });
     const [viewMode, setViewMode] = useState<'GRID' | 'GRAPH'>('GRID');
     const [showServiceWizard, setShowServiceWizard] = useState(false);
@@ -630,16 +629,7 @@ export default function Dashboard() {
             ? new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
             : a.name.localeCompare(b.name));
 
-    // Auth
-    useEffect(() => {
-        const t = localStorage.getItem("token");
-        if (!t) {
-            navigate("/login");
-        } else {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setToken(t);
-        }
-    }, [navigate]);
+    // Auth relies on AuthContext protection globally at App.tsx
 
     // Fetch Orgs
     const fetchOrgs = useCallback(async () => {
@@ -992,7 +982,7 @@ export default function Dashboard() {
                         {isSidebarOpen && (
                             <div className="flex-1 truncate">
                                 <p className="text-sm font-medium text-[#E3E3E3] truncate">Jane Doe</p>
-                                <p className="text-xs text-[#666] truncate hover:text-red-400 transition-colors" onClick={() => { localStorage.removeItem('token'); navigate('/login'); }}>Logout</p>
+                                <p className="text-xs text-[#666] truncate hover:text-red-400 transition-colors cursor-pointer" onClick={logout}>Logout</p>
                             </div>
                         )}
                     </div>

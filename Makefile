@@ -28,13 +28,13 @@ build-backend: ## Build the Spring Boot backend JAR (skips tests)
 # --- Infrastructure Commands ---
 
 docker-up: ## Start the required infrastructure (PostgreSQL, Redis, MinIO, RabbitMQ)
-	docker-compose up -d
+	docker compose up -d
 
 docker-down: ## Stop and remove the infrastructure containers
-	docker-compose down
+	docker compose down
 
 docker-logs: ## View logs for the infrastructure containers
-	docker-compose logs -f
+	docker compose logs -f
 
 # --- Utility Commands ---
 
