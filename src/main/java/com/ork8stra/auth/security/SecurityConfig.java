@@ -38,6 +38,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/github/auth").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/error").permitAll()
+                        // SSE log streaming — token validated manually in controller
+                        // because EventSource cannot send Authorization headers
+                        .requestMatchers("/api/v1/apps/*/build/*/logs").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())

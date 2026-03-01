@@ -109,4 +109,49 @@ public class DeploymentService {
                                 app.getId().toString(),
                                 DeploymentStatus.HEALTHY.name());
         }
+
+        public void stopApplication(Application app, Project project) {
+                String namespace = project.getK8sNamespace();
+                String deploymentName = app.getName() + "-deploy";
+
+                kubernetesClient.apps().deployments()
+                                .inNamespace(namespace)
+                                .withName(deploymentName)
+                                .scale(0);
+
+                eventPublisher.publishDeploymentStatus(
+                                null,
+                                app.getId().toString(),
+                                "STOPPED");
+        }
+
+        public void startApplication(Application app, Project project) {
+                String namespace = project.getK8sNamespace();
+                String deploymentName = app.getName() + "-deploy";
+
+                kubernetesClient.apps().deployments()
+                                .inNamespace(namespace)
+                                .withName(deploymentName)
+                                .scale(1);
+
+                eventPublisher.publishDeploymentStatus(
+                                null,
+                                app.getId().toString(),
+                                "ACTIVE");
+        }
+
+        public void restartApplication(Application app, Project project) {
+                String namespace = project.getK8sNamespace();
+                String deploymentName = app.getName() + "-deploy";
+
+                kubernetesClient.apps().deployments()
+                                .inNamespace(namespace)
+                                .withName(deploymentName)
+                                .rolling().restart();
+
+                eventPublisher.publishDeploymentStatus(
+                                null,
+                                app.getId().toString(),
+                                "RESTARTING");
+        }
 }

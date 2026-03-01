@@ -4,6 +4,9 @@ import com.ork8stra.api.dto.ApplicationResponse;
 import com.ork8stra.api.dto.CreateApplicationRequest;
 import com.ork8stra.applicationmanagement.Application;
 import com.ork8stra.applicationmanagement.ApplicationService;
+import com.ork8stra.deploymentengine.DeploymentService;
+import com.ork8stra.projectmanagement.Project;
+import com.ork8stra.projectmanagement.ProjectService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +24,8 @@ import java.util.UUID;
 public class ApplicationController {
 
     private final ApplicationService applicationService;
+    private final ProjectService projectService;
+    private final DeploymentService deploymentService;
 
     @PostMapping("/projects/{projectId}/apps")
     public ResponseEntity<ApplicationResponse> createApplication(
@@ -33,6 +38,7 @@ public class ApplicationController {
                 projectId,
                 request.getGitRepoUrl(),
                 request.getBuildBranch(),
+                request.getDockerfilePath(),
                 request.getEnvVars());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(app));
@@ -57,7 +63,8 @@ public class ApplicationController {
             @PathVariable UUID id,
             @RequestBody com.ork8stra.api.dto.UpdateApplicationRequest request) {
         Application updated = applicationService.updateApplication(
-                id, request.getGitRepoUrl(), request.getBuildBranch(), request.getEnvVars());
+                id, request.getGitRepoUrl(), request.getBuildBranch(), request.getDockerfilePath(),
+                request.getEnvVars());
         return ResponseEntity.ok(toResponse(updated));
     }
 
@@ -67,6 +74,30 @@ public class ApplicationController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/apps/{id}/stop")
+    public ResponseEntity<Void> stopApplication(@PathVariable UUID id) {
+        Application app = applicationService.getApplication(id);
+        Project project = projectService.getProjectById(app.getProjectId());
+        deploymentService.stopApplication(app, project);
+        return ResponseEntity.accepted().build();
+    }
+
+    @PostMapping("/apps/{id}/start")
+    public ResponseEntity<Void> startApplication(@PathVariable UUID id) {
+        Application app = applicationService.getApplication(id);
+        Project project = projectService.getProjectById(app.getProjectId());
+        deploymentService.startApplication(app, project);
+        return ResponseEntity.accepted().build();
+    }
+
+    @PostMapping("/apps/{id}/restart")
+    public ResponseEntity<Void> restartApplication(@PathVariable UUID id) {
+        Application app = applicationService.getApplication(id);
+        Project project = projectService.getProjectById(app.getProjectId());
+        deploymentService.restartApplication(app, project);
+        return ResponseEntity.accepted().build();
+    }
+
     private ApplicationResponse toResponse(Application app) {
         return ApplicationResponse.builder()
                 .id(app.getId())
@@ -74,6 +105,7 @@ public class ApplicationController {
                 .projectId(app.getProjectId())
                 .gitRepoUrl(app.getGitRepoUrl())
                 .buildBranch(app.getBuildBranch())
+                .dockerfilePath(app.getDockerfilePath())
                 .envVars(app.getEnvVars())
                 .build();
     }
