@@ -4,17 +4,17 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { X, Loader2, Layers } from "lucide-react";
 
+import projectsApi from "../api/projects";
+
 export default function CreateProjectModal({
     isOpen,
     onClose,
     onComplete,
-    token,
     teamID
 }: {
     isOpen: boolean;
     onClose: () => void;
     onComplete: () => void;
-    token: string;
     teamID: string;
 }) {
     const [name, setName] = useState("");
@@ -29,21 +29,14 @@ export default function CreateProjectModal({
         setError("");
 
         try {
-            const res = await fetch("/api/v1/projects", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ name, team_id: teamID })
+            await projectsApi.create({
+                name,
+                team_id: teamID
             });
-
-            if (!res.ok) {
-                throw new Error("Failed to create project");
-            }
 
             onComplete();
             onClose();
+            setName(""); // Reset form on success
         } catch (err) {
             console.error(err);
             setError("Failed to create project. Please try again.");

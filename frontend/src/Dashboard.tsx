@@ -327,10 +327,19 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
                 // Map the builds into the UI's existing 'Deployment' shape for seamless rendering
                 const mappedBuilds = buildsData.map((b: any) => ({
                     id: b.id,
-                    project_id: b.appId,
-                    service_id: b.appId, // Service maps to Application in backend
-                    status: b.status === "ACTIVE" ? "building" : (b.status === "COMPLETED" ? "success" : "failed"),
-                    created_at: b.startTime || new Date().toISOString()
+                    project_id: b.applicationId,
+                    service_id: b.applicationId, // Service maps to Application in backend
+                    applicationId: b.applicationId,
+                    imageTag: b.imageTag,
+                    status: b.status === "RUNNING" || b.status === "PENDING" ? "building"
+                        : b.status === "SUCCESS" ? "success"
+                            : b.status === "FAILED" ? "failed"
+                                : b.status === "CANCELLED" ? "failed"
+                                    : "building",
+                    created_at: b.startTime || new Date().toISOString(),
+                    createdAt: b.startTime || new Date().toISOString(),
+                    logs: '',
+                    commit_hash: ''
                 }));
                 // Sort by newest first
                 mappedBuilds.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -338,7 +347,12 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
 
                 // Keep current deployment selected, or default to the most recent one
                 if (mappedBuilds.length > 0) {
-                    setCurrentDeployment(prev => prev || mappedBuilds[0]);
+                    setCurrentDeployment(prev => {
+                        if (!prev) return mappedBuilds[0];
+                        // Refresh status of the currently selected build
+                        const updated = mappedBuilds.find((b: any) => b.id === prev.id);
+                        return updated || prev;
+                    });
                 }
             }
         } catch (e) { console.error(e); }
@@ -354,67 +368,66 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
     useEffect(() => {
         if (!currentDeployment || !service) return;
 
-        setLogs([]); // Clear logs when switching deployments
+        setLogs([]);
 
-        // Native SSE Integration
         const url = `/api/v1/apps/${service.id}/build/${currentDeployment.id}/logs`;
         const eventSource = new EventSource(url);
 
-        eventSource.onmessage = (event) => {
-            // Check for standard complete event
-            if (event.data === "Build log stream ended") {
-                eventSource.close();
-                return;
-            }
-
-            setLogs((prev) => {
-                const newLogs = [...prev, event.data];
-                // Keep only the last 200 lines to prevent memory issues in browser
-                return newLogs.slice(-200);
-            });
+        const appendLog = (line: string) => {
+            setLogs((prev) => [...prev, line].slice(-200));
         };
+
+        eventSource.addEventListener("log", (event: MessageEvent) => {
+            appendLog(event.data);
+        });
+
+        eventSource.addEventListener("complete", (event: MessageEvent) => {
+            appendLog(event.data);
+            eventSource.close();
+            fetchData();
+        });
+
+        eventSource.addEventListener("error", (event: MessageEvent) => {
+            appendLog(`⚠️ ${event.data}`);
+            eventSource.close();
+        });
 
         eventSource.onerror = (error) => {
-            console.error("SSE Log Stream Error:", error);
-            eventSource.close(); // Clean up on critical failure
+            console.error("SSE connection error:", error);
+            eventSource.close();
         };
 
-        // Cleanup function runs when component unmounts or deployment changes
         return () => {
             eventSource.close();
         };
-    }, [currentDeployment?.id, service?.id]);
+    }, [currentDeployment?.id, service?.id, fetchData]);
 
     const handleRedeploy = async () => {
         if (!token) return;
         try {
-            const formData = new FormData();
-            formData.append("service_id", service.id);
-
-            const res = await fetch("/api/v1/deployments", {
+            const res = await fetch(`/api/v1/apps/${service.id}/build`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}` },
-                body: formData
             });
             if (res.ok) {
                 const data = await res.json();
                 const newDeployment: Deployment = {
-                    id: data.deployment_id,
+                    id: data.id,
                     service_id: service.id,
                     applicationId: service.id,
                     project_id: service.project_id,
                     imageTag: "latest",
-                    status: 'queued',
-                    created_at: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
+                    status: 'building',
+                    created_at: data.startTime || new Date().toISOString(),
+                    createdAt: data.startTime || new Date().toISOString(),
                     logs: '',
-                    commit_hash: currentDeployment?.commit_hash || ''
+                    commit_hash: ''
                 };
                 setDeployments(prev => [newDeployment, ...prev]);
                 setCurrentDeployment(newDeployment);
-                setCurrentDeployment(newDeployment);
-
                 fetchData();
+            } else {
+                console.error("Deploy failed with status:", res.status);
             }
         } catch (e) { console.error("Redeploy error", e); }
     };
@@ -629,13 +642,22 @@ export default function Dashboard() {
             ? new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
             : a.name.localeCompare(b.name));
 
-    // Auth relies on AuthContext protection globally at App.tsx
+    // Auto-logout on 401/403 (expired or invalid token)
+    const handleAuthError = useCallback((res: Response) => {
+        if (res.status === 401 || res.status === 403) {
+            console.warn(`Auth error ${res.status} — logging out`);
+            logout();
+            return true;
+        }
+        return false;
+    }, [logout]);
 
     // Fetch Orgs
     const fetchOrgs = useCallback(async () => {
         if (!token) return;
         try {
             const res = await fetch("/api/v1/orgs", { headers: { Authorization: `Bearer ${token}` } });
+            if (handleAuthError(res)) return;
             if (res.ok) {
                 const data = await res.json() || [];
                 setOrgs(data);
@@ -644,7 +666,7 @@ export default function Dashboard() {
                 }
             }
         } catch (e) { console.error(e); }
-    }, [token, currentOrg]);
+    }, [token, currentOrg, handleAuthError]);
 
     // Fetch Teams from backend using the current Organization ID
     const fetchTeams = useCallback(async () => {
@@ -656,6 +678,7 @@ export default function Dashboard() {
                     "X-Org-ID": currentOrg.id
                 }
             });
+            if (handleAuthError(res)) return;
             if (res.ok) {
                 const fetchedTeams: Team[] = await res.json();
                 setTeams(fetchedTeams);
@@ -668,7 +691,7 @@ export default function Dashboard() {
         } catch (e) {
             console.error(e);
         }
-    }, [token, currentOrg, currentTeam]);
+    }, [token, currentOrg, currentTeam, handleAuthError]);
 
     // Fetch Projects using the current Team ID
     const fetchProjects = useCallback(async () => {
@@ -677,9 +700,10 @@ export default function Dashboard() {
             const res = await fetch(`/api/v1/projects?teamId=${currentTeam.id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            if (handleAuthError(res)) return;
             if (res.ok) setProjects(await res.json());
         } catch (e) { console.error(e); }
-    }, [token, currentTeam]);
+    }, [token, currentTeam, handleAuthError]);
 
     // Fetch Services (When in PROJECT view)
     const fetchServices = useCallback(async () => {
@@ -689,6 +713,7 @@ export default function Dashboard() {
             const res = await fetch(`/api/v1/projects/${projectId}/apps`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            if (handleAuthError(res)) return;
             if (res.ok) {
                 const data: any[] = await res.json();
 
@@ -1113,7 +1138,6 @@ export default function Dashboard() {
                         isOpen={showProjectModal}
                         onClose={() => setShowProjectModal(false)}
                         onComplete={handleProjectComplete}
-                        token={token!}
                         teamID={currentTeam?.id || ''}
                     />
                 )}

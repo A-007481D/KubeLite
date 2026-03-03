@@ -119,7 +119,7 @@ export default function GlobalDashboard({ org }: GlobalDashboardProps) {
                     <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-600/20 to-emerald-500/20 flex items-center justify-center mb-6 border border-white/5 shadow-2xl">
                         <Globe className="w-10 h-10 text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
                     </div>
-                    <h2 className="text-3xl font-extrabold text-white tracking-tight mb-3">Welcome to KubeLite</h2>
+                    <h2 className="text-3xl font-extrabold text-white tracking-tight mb-3">Welcome to Ork8stra</h2>
                     <p className="text-[#888] text-lg leading-relaxed mb-8">
                         Your enterprise cloud orchestrator awaits. Initialize your first organization in the sidebar to begin provisioning infrastructure.
                     </p>

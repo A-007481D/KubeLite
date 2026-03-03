@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Command } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 
 export default function OAuthCallback() {
