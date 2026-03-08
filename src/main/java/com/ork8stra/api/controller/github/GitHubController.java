@@ -6,11 +6,13 @@ import com.ork8stra.api.dto.github.GithubConnectRequest;
 import com.ork8stra.api.dto.github.GithubRepoResponse;
 import com.ork8stra.integration.github.GithubService;
 import com.ork8stra.user.User;
+import com.ork8stra.user.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,6 +25,12 @@ import java.util.Map;
 public class GitHubController {
 
     private final GithubService githubService;
+    private final UserRepository userRepository;
+
+    private User resolveUser(UserDetails userDetails) {
+        return userRepository.findByUsernameIgnoreCase(userDetails.getUsername())
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userDetails.getUsername()));
+    }
 
     @GetMapping("/auth")
     public ResponseEntity<GithubAuthResponse> initiateAuth() {
@@ -32,18 +40,17 @@ public class GitHubController {
 
     @PostMapping("/connect")
     public ResponseEntity<Void> connect(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody GithubConnectRequest request) {
 
-        // Note: The frontend sends "access_token" but it's actually the "code"
-        // parameter
-        // returned by the GitHub OAuth flow that we need to exchange.
+        User user = resolveUser(userDetails);
         githubService.connectAccount(user.getId(), request.getAccess_token(), request.getUsername());
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/connection")
-    public ResponseEntity<Map<String, Object>> checkConnection(@AuthenticationPrincipal User user) {
+    public ResponseEntity<Map<String, Object>> checkConnection(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = resolveUser(userDetails);
         boolean isConnected = githubService.isConnected(user.getId());
         return ResponseEntity.ok(Map.of(
                 "connected", isConnected,
@@ -51,17 +58,19 @@ public class GitHubController {
     }
 
     @GetMapping("/repos")
-    public ResponseEntity<List<GithubRepoResponse>> getRepositories(@AuthenticationPrincipal User user) {
+    public ResponseEntity<List<GithubRepoResponse>> getRepositories(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = resolveUser(userDetails);
         List<GithubRepoResponse> repos = githubService.getUserRepositories(user.getId());
         return ResponseEntity.ok(repos);
     }
 
     @GetMapping("/branches")
     public ResponseEntity<List<GithubBranchResponse>> getBranches(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam String owner,
             @RequestParam String repo) {
 
+        User user = resolveUser(userDetails);
         List<GithubBranchResponse> branches = githubService.getRepositoryBranches(user.getId(), owner, repo);
         return ResponseEntity.ok(branches);
     }
