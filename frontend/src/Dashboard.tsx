@@ -13,6 +13,7 @@ import ServiceCatalogModal from "./components/ServiceCatalogModal";
 import CreateProjectWizard from "./components/CreateProjectWizard";
 import CreateProjectModal from "./components/CreateProjectModal";
 import CreateTeamModal from "./components/CreateTeamModal";
+import { ToastContainer, useToast } from "./components/Toast";
 import CreateOrganizationModal from "./components/CreateOrganizationModal";
 import ServiceGraph from "./components/ServiceGraph";
 import SettingsMembers from "./components/SettingsMembers";
@@ -316,6 +317,7 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [lifecycleLoading, setLifecycleLoading] = useState<'stop' | 'start' | 'restart' | null>(null);
     const [metrics, setMetrics] = useState<{ cpuMillicores: number; memoryMiB: number; podCount: number } | null>(null);
+    const { toasts, addToast, removeToast } = useToast();
 
     const fetchData = useCallback(async () => {
         try {
@@ -436,12 +438,20 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
         if (!token) return;
         setLifecycleLoading(action);
         try {
-            await fetch(`/api/v1/apps/${service.id}/${action}`, {
+            const res = await fetch(`/api/v1/apps/${service.id}/${action}`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setTimeout(() => fetchData(), 1500);
-        } catch (e) { console.error(`${action} error`, e); }
+            if (res.ok) {
+                addToast(`Application ${action}ped successfully`, 'success');
+                setTimeout(() => fetchData(), 1500);
+            } else {
+                addToast(`Failed to ${action} application`, 'error');
+            }
+        } catch (e) {
+            addToast(`Failed to ${action} application`, 'error');
+            console.error(`${action} error`, e);
+        }
         finally { setLifecycleLoading(null); }
     };
 
@@ -449,12 +459,20 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
         e.stopPropagation();
         if (!token) return;
         try {
-            await fetch(`/api/v1/apps/${service.id}/rollback/${buildId}`, {
+            const res = await fetch(`/api/v1/apps/${service.id}/rollback/${buildId}`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
             });
-            fetchData();
-        } catch (err) { console.error('Rollback error', err); }
+            if (res.ok) {
+                addToast('Rollback initiated successfully', 'success');
+                fetchData();
+            } else {
+                addToast('Rollback failed', 'error');
+            }
+        } catch (err) {
+            addToast('Rollback failed', 'error');
+            console.error('Rollback error', err);
+        }
     };
 
     useEffect(() => {
@@ -689,6 +707,7 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
                     />
                 )}
             </AnimatePresence>
+            <ToastContainer toasts={toasts} onClose={removeToast} />
         </div >
     );
 };
