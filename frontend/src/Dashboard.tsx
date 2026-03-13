@@ -6,7 +6,7 @@ import {
     Box, Filter, List as ListIcon,
     Terminal, Activity, ArrowUpRight, Server,
     GitBranch, RefreshCw, Play, Square, RotateCcw,
-    Settings, Building2, Database, Layout as LayoutIcon, Cpu
+    Settings, Building2, Database, Layout as LayoutIcon, Cpu, Lock
 } from "lucide-react";
 
 import ServiceCatalogModal from "./components/ServiceCatalogModal";
@@ -694,9 +694,12 @@ const ServiceDetail = ({ service, project, token, onUpdate, onDelete }: { servic
                             </div>
                             <div className="h-[1px] bg-[#222] my-1" />
                             <div className="space-y-1.5">
-                                <span className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">Public URL</span>
+                                <span className="text-[10px] font-semibold text-[#555] uppercase tracking-wider flex items-center gap-1.5">
+                                    <Lock className="w-2.5 h-2.5" />
+                                    Public URL (HTTPS)
+                                </span>
                                 <a
-                                    href={`http://${service.name.toLowerCase().replaceAll(/[^a-z0-9]/g, "")}.${project.name.toLowerCase().replaceAll(/[^a-z0-9]/g, "")}.local.kubelite.io`}
+                                    href={`https://${service.name.toLowerCase().replaceAll(/[^a-z0-9]/g, "")}.${project.name.toLowerCase().replaceAll(/[^a-z0-9]/g, "")}.local.kubelite.io`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-colors group/link"

@@ -9,6 +9,7 @@ import com.ork8stra.projectmanagement.ProjectService;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1.IngressTLSBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.modulith.events.ApplicationModuleListener;
@@ -113,8 +114,14 @@ public class DeploymentService {
                                                 .withNewMetadata()
                                                 .withName(appName + "-ingress")
                                                 .addToLabels("app", appName)
+                                                .addToAnnotations("cert-manager.io/cluster-issuer",
+                                                                "kubelite-selfsigned")
                                                 .endMetadata()
                                                 .withNewSpec()
+                                                .withTls(new IngressTLSBuilder()
+                                                                .addToHosts(host)
+                                                                .withSecretName(appName + "-tls-secret")
+                                                                .build())
                                                 .addNewRule()
                                                 .withHost(host)
                                                 .withNewHttp()
