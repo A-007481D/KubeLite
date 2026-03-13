@@ -38,6 +38,7 @@ export interface Project {
 
 export interface CreateProjectRequest {
     name: string;
+    team_id: string;
 }
 
 // Application types
@@ -55,6 +56,7 @@ export interface CreateApplicationRequest {
     name: string;
     gitRepoUrl: string;
     buildBranch: string;
+    dockerfilePath?: string;
     envVars?: Record<string, string>;
 }
 

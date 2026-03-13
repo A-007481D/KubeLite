@@ -360,6 +360,7 @@ export default function CreateServiceWizard({
                     name: data.serviceName,
                     gitRepoUrl: data.repository,
                     buildBranch: data.branch,
+                    dockerfilePath: data.dockerfilePath || "Dockerfile",
                     envVars: envVarMap
                 }),
             });

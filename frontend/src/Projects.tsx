@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useToast } from './contexts/ToastContext';
-import projectsApi from './api/projects';
-import type { Project } from './types';
+import type { Project, Organization, Team } from './types';
 import { Button } from './components/ui/Button';
 import { Card } from './components/ui/Card';
 import { Badge } from './components/ui/Badge';
 import CreateProjectModal from './components/CreateProjectModal';
 import { ChevronRight } from 'lucide-react';
+import api from './api';
 
 export default function Projects() {
     useAuth();
@@ -16,20 +16,42 @@ export default function Projects() {
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const fetchProjects = async () => {
+    // Core Platform State Needed for Creation Context
+    const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
+
+    const initializeContextAndFetch = async () => {
         try {
             setIsLoading(true);
-            const data = await projectsApi.getAll();
-            setProjects(data);
+
+            // 1. Fetch Orgs to get context
+            const orgsRes = await api.get<Organization[]>('/orgs');
+            const orgs = orgsRes.data || [];
+            if (orgs.length === 0) return;
+            const org = orgs[0];
+
+            // 2. Fetch Teams for this Org
+            const teamsRes = await api.get<Team[]>('/teams', {
+                headers: { "X-Org-ID": org.id }
+            });
+            const teams = teamsRes.data || [];
+            if (teams.length === 0) return;
+            const team = teams[0];
+            setCurrentTeam(team);
+
+            // 3. Fetch Projects for this Team
+            const data = await api.get<Project[]>(`/projects?teamId=${team.id}`);
+            setProjects(data.data);
+
         } catch (err) {
-            showToast('error', 'Failed to fetch projects');
+            console.error(err);
+            showToast('error', 'Failed to fetch workspace context');
         } finally {
             setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchProjects();
+        initializeContextAndFetch();
     }, []);
 
 
@@ -90,15 +112,14 @@ export default function Projects() {
                 </div>
             )}
 
-            {isModalOpen && (
+            {isModalOpen && currentTeam && (
                 <CreateProjectModal
                     isOpen={isModalOpen}
-                    token=""
-                    teamID=""
+                    teamID={currentTeam.id}
                     onClose={() => setIsModalOpen(false)}
                     onComplete={() => {
                         setIsModalOpen(false);
-                        fetchProjects();
+                        initializeContextAndFetch();
                         showToast('success', `Project created successfully`);
                     }}
                 />

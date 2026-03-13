@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import type { Project, Service, Deployment, ViewState, Team, Organization } from "./types/index";
 import {
     Search, Plus, Bell, ChevronDown, ChevronRight,
     Inbox, Layers,
     Box, Filter, List as ListIcon,
     Terminal, Activity, ArrowUpRight, Server,
-    GitBranch, RefreshCw, Play,
+    GitBranch, RefreshCw, Play, Square, RotateCcw,
     Settings, Building2, Database, Layout as LayoutIcon, Cpu
 } from "lucide-react";
 
@@ -14,11 +13,14 @@ import ServiceCatalogModal from "./components/ServiceCatalogModal";
 import CreateProjectWizard from "./components/CreateProjectWizard";
 import CreateProjectModal from "./components/CreateProjectModal";
 import CreateTeamModal from "./components/CreateTeamModal";
+import { ToastContainer, useToast } from "./components/Toast";
+import { SkeletonServiceCard } from "./components/Skeleton";
 import CreateOrganizationModal from "./components/CreateOrganizationModal";
 import ServiceGraph from "./components/ServiceGraph";
 import SettingsMembers from "./components/SettingsMembers";
 import SettingsModal from "./components/SettingsModal";
 import GlobalDashboard from "./pages/GlobalDashboard";
+import { useAuth } from "./contexts/AuthContext";
 import { AnimatePresence, motion } from "framer-motion";
 
 // UI Components
@@ -252,10 +254,9 @@ const ProjectsGrid = ({ projects, onSelect }: { projects: Project[], onSelect: (
     </div>
 );
 
-const ServicesGrid = ({ services, onSelect, onAdd }: { services: Service[], onSelect: (s: Service) => void, onAdd: () => void }) => (
+const ServicesGrid = ({ services, loading, onSelect, onAdd }: { services: Service[], loading?: boolean, onSelect: (s: Service) => void, onAdd: () => void }) => (
     <div className="px-6 pb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Add New Card */}
             <button
                 onClick={onAdd}
                 className="border border-dashed border-[#2C2C2C] bg-[#141414]/50 hover:bg-[#1A1A1A] hover:border-[#444] rounded-lg p-5 flex flex-col items-center justify-center gap-3 transition-all h-[160px] group"
@@ -266,7 +267,9 @@ const ServicesGrid = ({ services, onSelect, onAdd }: { services: Service[], onSe
                 <span className="text-sm font-medium text-[#666] group-hover:text-[#999]">Add Service</span>
             </button>
 
-            {services.map(s => (
+            {loading ? (
+                [1, 2, 3].map(i => <SkeletonServiceCard key={i} />)
+            ) : services.map(s => (
                 <motion.div
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -314,8 +317,9 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
     const [currentDeployment, setCurrentDeployment] = useState<Deployment | null>(null);
     const [deployments, setDeployments] = useState<Deployment[]>([]);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-
+    const [lifecycleLoading, setLifecycleLoading] = useState<'stop' | 'start' | 'restart' | null>(null);
+    const [metrics, setMetrics] = useState<{ cpuMillicores: number; memoryMiB: number; podCount: number } | null>(null);
+    const { toasts, addToast, removeToast } = useToast();
 
     const fetchData = useCallback(async () => {
         try {
@@ -327,10 +331,19 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
                 // Map the builds into the UI's existing 'Deployment' shape for seamless rendering
                 const mappedBuilds = buildsData.map((b: any) => ({
                     id: b.id,
-                    project_id: b.appId,
-                    service_id: b.appId, // Service maps to Application in backend
-                    status: b.status === "ACTIVE" ? "building" : (b.status === "COMPLETED" ? "success" : "failed"),
-                    created_at: b.startTime || new Date().toISOString()
+                    project_id: b.applicationId,
+                    service_id: b.applicationId, // Service maps to Application in backend
+                    applicationId: b.applicationId,
+                    imageTag: b.imageTag,
+                    status: b.status === "RUNNING" || b.status === "PENDING" ? "building"
+                        : b.status === "SUCCESS" ? "success"
+                            : b.status === "FAILED" ? "failed"
+                                : b.status === "CANCELLED" ? "failed"
+                                    : "building",
+                    created_at: b.startTime || new Date().toISOString(),
+                    createdAt: b.startTime || new Date().toISOString(),
+                    logs: '',
+                    commit_hash: ''
                 }));
                 // Sort by newest first
                 mappedBuilds.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -338,7 +351,12 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
 
                 // Keep current deployment selected, or default to the most recent one
                 if (mappedBuilds.length > 0) {
-                    setCurrentDeployment(prev => prev || mappedBuilds[0]);
+                    setCurrentDeployment(prev => {
+                        if (!prev) return mappedBuilds[0];
+                        // Refresh status of the currently selected build
+                        const updated = mappedBuilds.find((b: any) => b.id === prev.id);
+                        return updated || prev;
+                    });
                 }
             }
         } catch (e) { console.error(e); }
@@ -354,70 +372,119 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
     useEffect(() => {
         if (!currentDeployment || !service) return;
 
-        setLogs([]); // Clear logs when switching deployments
+        setLogs([]);
 
-        // Native SSE Integration
         const url = `/api/v1/apps/${service.id}/build/${currentDeployment.id}/logs`;
         const eventSource = new EventSource(url);
 
-        eventSource.onmessage = (event) => {
-            // Check for standard complete event
-            if (event.data === "Build log stream ended") {
-                eventSource.close();
-                return;
-            }
-
-            setLogs((prev) => {
-                const newLogs = [...prev, event.data];
-                // Keep only the last 200 lines to prevent memory issues in browser
-                return newLogs.slice(-200);
-            });
+        const appendLog = (line: string) => {
+            setLogs((prev) => [...prev, line].slice(-200));
         };
+
+        eventSource.addEventListener("log", (event: MessageEvent) => {
+            appendLog(event.data);
+        });
+
+        eventSource.addEventListener("complete", (event: MessageEvent) => {
+            appendLog(event.data);
+            eventSource.close();
+            fetchData();
+        });
+
+        eventSource.addEventListener("error", (event: MessageEvent) => {
+            appendLog(`⚠️ ${event.data}`);
+            eventSource.close();
+        });
 
         eventSource.onerror = (error) => {
-            console.error("SSE Log Stream Error:", error);
-            eventSource.close(); // Clean up on critical failure
+            console.error("SSE connection error:", error);
+            eventSource.close();
         };
 
-        // Cleanup function runs when component unmounts or deployment changes
         return () => {
             eventSource.close();
         };
-    }, [currentDeployment?.id, service?.id]);
+    }, [currentDeployment?.id, service?.id, fetchData]);
 
     const handleRedeploy = async () => {
         if (!token) return;
         try {
-            const formData = new FormData();
-            formData.append("service_id", service.id);
-
-            const res = await fetch("/api/v1/deployments", {
+            const res = await fetch(`/api/v1/apps/${service.id}/build`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}` },
-                body: formData
             });
             if (res.ok) {
                 const data = await res.json();
                 const newDeployment: Deployment = {
-                    id: data.deployment_id,
+                    id: data.id,
                     service_id: service.id,
                     applicationId: service.id,
                     project_id: service.project_id,
                     imageTag: "latest",
-                    status: 'queued',
-                    created_at: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
+                    status: 'building',
+                    created_at: data.startTime || new Date().toISOString(),
+                    createdAt: data.startTime || new Date().toISOString(),
                     logs: '',
-                    commit_hash: currentDeployment?.commit_hash || ''
+                    commit_hash: ''
                 };
                 setDeployments(prev => [newDeployment, ...prev]);
                 setCurrentDeployment(newDeployment);
-                setCurrentDeployment(newDeployment);
-
                 fetchData();
+            } else {
+                console.error("Deploy failed with status:", res.status);
             }
         } catch (e) { console.error("Redeploy error", e); }
     };
+
+    const handleLifecycleAction = async (action: 'stop' | 'start' | 'restart') => {
+        if (!token) return;
+        setLifecycleLoading(action);
+        try {
+            const res = await fetch(`/api/v1/apps/${service.id}/${action}`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                addToast(`Application ${action}ped successfully`, 'success');
+                setTimeout(() => fetchData(), 1500);
+            } else {
+                addToast(`Failed to ${action} application`, 'error');
+            }
+        } catch (e) {
+            addToast(`Failed to ${action} application`, 'error');
+            console.error(`${action} error`, e);
+        }
+        finally { setLifecycleLoading(null); }
+    };
+
+    const handleRollback = async (buildId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!token) return;
+        try {
+            const res = await fetch(`/api/v1/apps/${service.id}/rollback/${buildId}`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                addToast('Rollback initiated successfully', 'success');
+                fetchData();
+            } else {
+                addToast('Rollback failed', 'error');
+            }
+        } catch (err) {
+            addToast('Rollback failed', 'error');
+            console.error('Rollback error', err);
+        }
+    };
+
+    useEffect(() => {
+        const eventSource = new EventSource(`/api/v1/apps/${service.id}/metrics`);
+        eventSource.addEventListener('metrics', (event: MessageEvent) => {
+            try { setMetrics(JSON.parse(event.data)); } catch { /* ignore */ }
+        });
+        eventSource.onerror = () => eventSource.close();
+        return () => eventSource.close();
+    }, [service.id]);
 
     return (
         <div className="flex-1 flex flex-col overflow-hidden h-full">
@@ -466,6 +533,37 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
                         {currentDeployment?.status === 'building' ? <RefreshCw className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Play className="w-3.5 h-3.5 mr-2" />}
                         Redeploy
                     </Button>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleLifecycleAction('stop')}
+                        disabled={!!lifecycleLoading}
+                        title="Stop application"
+                        className="bg-[#222] border-[#333] hover:bg-red-900/40 hover:border-red-700 text-[#CCC] hover:text-red-400 transition-colors"
+                    >
+                        {lifecycleLoading === 'stop' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Square className="w-3.5 h-3.5" />}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleLifecycleAction('start')}
+                        disabled={!!lifecycleLoading}
+                        title="Start application"
+                        className="bg-[#222] border-[#333] hover:bg-emerald-900/40 hover:border-emerald-700 text-[#CCC] hover:text-emerald-400 transition-colors"
+                    >
+                        {lifecycleLoading === 'start' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleLifecycleAction('restart')}
+                        disabled={!!lifecycleLoading}
+                        title="Restart application"
+                        className="bg-[#222] border-[#333] hover:bg-amber-900/40 hover:border-amber-700 text-[#CCC] hover:text-amber-400 transition-colors"
+                    >
+                        {lifecycleLoading === 'restart' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                    </Button>
+                    <div className="h-6 w-[1px] bg-[#222]" />
                     <Button size="sm" variant="secondary" onClick={() => setIsSettingsOpen(true)} className="bg-[#222] border-[#333] hover:bg-[#333] text-[#CCC]">
                         <Settings className="w-3.5 h-3.5" />
                     </Button>
@@ -518,8 +616,7 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
                                 <div
                                     key={d.id}
                                     onClick={() => setCurrentDeployment(d)}
-                                    className={`px-4 py-3 border-b border-[#1A1A1A] transition-colors flex items-center justify-between group cursor-pointer ${currentDeployment?.id === d.id ? 'bg-[#1A1A1A]' : 'hover:bg-[#151515]'
-                                        }`}
+                                    className={`px-4 py-3 border-b border-[#1A1A1A] transition-colors flex items-center justify-between group cursor-pointer ${currentDeployment?.id === d.id ? 'bg-[#1A1A1A]' : 'hover:bg-[#151515]'}`}
                                 >
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center gap-2">
@@ -531,11 +628,49 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
                                         </div>
                                         <span className="text-[10px] text-[#555]">{d.created_at ? new Date(d.created_at).toLocaleString() : ''}</span>
                                     </div>
-                                    <span className="font-mono text-[10px] text-[#444] group-hover:text-[#666] transition-colors bg-[#111] px-1.5 py-0.5 rounded border border-[#222]">
-                                        {d.id.substring(0, 4)}
-                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                        {d.status === 'success' && (
+                                            <button
+                                                onClick={(e) => handleRollback(d.id, e)}
+                                                title="Rollback to this version"
+                                                className="opacity-0 group-hover:opacity-100 p-1 rounded text-[#555] hover:text-amber-400 hover:bg-amber-900/30 transition-all"
+                                            >
+                                                <RotateCcw className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                        <span className="font-mono text-[10px] text-[#444] group-hover:text-[#666] transition-colors bg-[#111] px-1.5 py-0.5 rounded border border-[#222]">
+                                            {d.id.substring(0, 4)}
+                                        </span>
+                                    </div>
                                 </div>
                             ))}
+                        </div>
+                    </Card>
+
+                    <Card className="bg-[#0A0A0A] border-[#222]">
+                        <CardHeader className="py-2.5 px-4 border-b border-[#222] bg-[#111] flex flex-row items-center justify-between">
+                            <CardTitle className="text-xs font-medium text-[#888] uppercase tracking-wider">Live Metrics</CardTitle>
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        </CardHeader>
+                        <div className="p-4 space-y-3">
+                            <div className="flex justify-between text-xs items-center">
+                                <span className="text-[#666] flex items-center gap-1.5"><Cpu className="w-3 h-3" /> CPU</span>
+                                <span className="text-[#E3E3E3] font-mono">{metrics ? `${metrics.cpuMillicores}m` : '---'}</span>
+                            </div>
+                            <div className="w-full h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: metrics ? `${Math.min((metrics.cpuMillicores / 1000) * 100, 100)}%` : '0%' }} />
+                            </div>
+                            <div className="flex justify-between text-xs items-center">
+                                <span className="text-[#666] flex items-center gap-1.5"><Database className="w-3 h-3" /> Memory</span>
+                                <span className="text-[#E3E3E3] font-mono">{metrics ? `${metrics.memoryMiB} MiB` : '---'}</span>
+                            </div>
+                            <div className="w-full h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+                                <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: metrics ? `${Math.min((metrics.memoryMiB / 512) * 100, 100)}%` : '0%' }} />
+                            </div>
+                            <div className="flex justify-between text-xs items-center pt-1">
+                                <span className="text-[#666]">Pods</span>
+                                <span className="text-[#E3E3E3] font-mono">{metrics?.podCount ?? '---'}</span>
+                            </div>
                         </div>
                     </Card>
 
@@ -574,6 +709,7 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
                     />
                 )}
             </AnimatePresence>
+            <ToastContainer toasts={toasts} onClose={removeToast} />
         </div >
     );
 };
@@ -581,8 +717,7 @@ const ServiceDetail = ({ service, token, onUpdate, onDelete }: { service: Servic
 // --- MAIN PAGE ---
 
 export default function Dashboard() {
-    const navigate = useNavigate();
-    const [token, setToken] = useState<string | null>(null);
+    const { token, logout } = useAuth();
     const [viewState, setViewState] = useState<ViewState>({ type: 'GLOBAL' });
     const [viewMode, setViewMode] = useState<'GRID' | 'GRAPH'>('GRID');
     const [showServiceWizard, setShowServiceWizard] = useState(false);
@@ -630,22 +765,22 @@ export default function Dashboard() {
             ? new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
             : a.name.localeCompare(b.name));
 
-    // Auth
-    useEffect(() => {
-        const t = localStorage.getItem("token");
-        if (!t) {
-            navigate("/login");
-        } else {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setToken(t);
+    // Auto-logout on 401/403 (expired or invalid token)
+    const handleAuthError = useCallback((res: Response) => {
+        if (res.status === 401 || res.status === 403) {
+            console.warn(`Auth error ${res.status} — logging out`);
+            logout();
+            return true;
         }
-    }, [navigate]);
+        return false;
+    }, [logout]);
 
     // Fetch Orgs
     const fetchOrgs = useCallback(async () => {
         if (!token) return;
         try {
             const res = await fetch("/api/v1/orgs", { headers: { Authorization: `Bearer ${token}` } });
+            if (handleAuthError(res)) return;
             if (res.ok) {
                 const data = await res.json() || [];
                 setOrgs(data);
@@ -654,7 +789,7 @@ export default function Dashboard() {
                 }
             }
         } catch (e) { console.error(e); }
-    }, [token, currentOrg]);
+    }, [token, currentOrg, handleAuthError]);
 
     // Fetch Teams from backend using the current Organization ID
     const fetchTeams = useCallback(async () => {
@@ -666,6 +801,7 @@ export default function Dashboard() {
                     "X-Org-ID": currentOrg.id
                 }
             });
+            if (handleAuthError(res)) return;
             if (res.ok) {
                 const fetchedTeams: Team[] = await res.json();
                 setTeams(fetchedTeams);
@@ -678,7 +814,7 @@ export default function Dashboard() {
         } catch (e) {
             console.error(e);
         }
-    }, [token, currentOrg, currentTeam]);
+    }, [token, currentOrg, currentTeam, handleAuthError]);
 
     // Fetch Projects using the current Team ID
     const fetchProjects = useCallback(async () => {
@@ -687,9 +823,10 @@ export default function Dashboard() {
             const res = await fetch(`/api/v1/projects?teamId=${currentTeam.id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            if (handleAuthError(res)) return;
             if (res.ok) setProjects(await res.json());
         } catch (e) { console.error(e); }
-    }, [token, currentTeam]);
+    }, [token, currentTeam, handleAuthError]);
 
     // Fetch Services (When in PROJECT view)
     const fetchServices = useCallback(async () => {
@@ -699,6 +836,7 @@ export default function Dashboard() {
             const res = await fetch(`/api/v1/projects/${projectId}/apps`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            if (handleAuthError(res)) return;
             if (res.ok) {
                 const data: any[] = await res.json();
 
@@ -992,7 +1130,7 @@ export default function Dashboard() {
                         {isSidebarOpen && (
                             <div className="flex-1 truncate">
                                 <p className="text-sm font-medium text-[#E3E3E3] truncate">Jane Doe</p>
-                                <p className="text-xs text-[#666] truncate hover:text-red-400 transition-colors" onClick={() => { localStorage.removeItem('token'); navigate('/login'); }}>Logout</p>
+                                <p className="text-xs text-[#666] truncate hover:text-red-400 transition-colors cursor-pointer" onClick={logout}>Logout</p>
                             </div>
                         )}
                     </div>
@@ -1123,7 +1261,6 @@ export default function Dashboard() {
                         isOpen={showProjectModal}
                         onClose={() => setShowProjectModal(false)}
                         onComplete={handleProjectComplete}
-                        token={token!}
                         teamID={currentTeam?.id || ''}
                     />
                 )}

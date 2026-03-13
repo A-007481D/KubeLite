@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 .PHONY: help dev-frontend build-frontend install-frontend dev-backend build-backend docker-up docker-down clean reset run stop
 
 # Ensure Java 21 is used for Maven commands
@@ -28,20 +29,27 @@ build-backend: ## Build the Spring Boot backend JAR (skips tests)
 # --- Infrastructure Commands ---
 
 docker-up: ## Start the required infrastructure (PostgreSQL, Redis, MinIO, RabbitMQ)
-	docker-compose up -d
+	docker compose up -d
 
 docker-down: ## Stop and remove the infrastructure containers
-	docker-compose down
+	docker compose down
 
 docker-logs: ## View logs for the infrastructure containers
-	docker-compose logs -f
+	docker compose logs -f
+
+# --- Kubernetes Commands ---
+minikube-start: ## Start the Minikube cluster
+	@echo "Checking minikube status..."
+	@minikube status >/dev/null 2>&1 || minikube start
 
 # --- Utility Commands ---
 
-run: docker-up ## Start the entire application (Infrastructure, Backend, Frontend) in development mode
+run: minikube-start docker-up ## Start the entire application (Infrastructure, Backend, Frontend) in development mode
 	@echo "Starting backend and frontend..."
-	@# Run backend in background and frontend in foreground
-	JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw spring-boot:run & cd frontend && npm run dev
+	@# Run backend and frontend concurrently
+	npx -y concurrently -k -p "[{name}]" -n "Backend,Frontend" -c "bgBlue.bold,bgMagenta.bold" \
+		"set -a && . ./.env && set +a && JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw spring-boot:run" \
+		"cd frontend && npm run dev"
 
 stop: docker-down ## Stop all infrastructure and background processes
 	@echo "Stopping application processes..."

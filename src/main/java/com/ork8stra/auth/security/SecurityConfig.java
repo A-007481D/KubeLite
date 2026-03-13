@@ -38,6 +38,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/github/auth").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/api/v1/apps/*/build/*/logs").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
