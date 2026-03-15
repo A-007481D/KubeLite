@@ -14,6 +14,7 @@ import CreateProjectWizard from "./components/CreateProjectWizard";
 import CreateProjectModal from "./components/CreateProjectModal";
 import CreateTeamModal from "./components/CreateTeamModal";
 import { ToastContainer, useToast } from "./components/Toast";
+import { SkeletonServiceCard } from "./components/Skeleton";
 import CreateOrganizationModal from "./components/CreateOrganizationModal";
 import ServiceGraph from "./components/ServiceGraph";
 import SettingsMembers from "./components/SettingsMembers";
@@ -253,10 +254,9 @@ const ProjectsGrid = ({ projects, onSelect }: { projects: Project[], onSelect: (
     </div>
 );
 
-const ServicesGrid = ({ services, onSelect, onAdd }: { services: Service[], onSelect: (s: Service) => void, onAdd: () => void }) => (
+const ServicesGrid = ({ services, loading, onSelect, onAdd }: { services: Service[], loading?: boolean, onSelect: (s: Service) => void, onAdd: () => void }) => (
     <div className="px-6 pb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Add New Card */}
             <button
                 onClick={onAdd}
                 className="border border-dashed border-[#2C2C2C] bg-[#141414]/50 hover:bg-[#1A1A1A] hover:border-[#444] rounded-lg p-5 flex flex-col items-center justify-center gap-3 transition-all h-[160px] group"
@@ -267,7 +267,9 @@ const ServicesGrid = ({ services, onSelect, onAdd }: { services: Service[], onSe
                 <span className="text-sm font-medium text-[#666] group-hover:text-[#999]">Add Service</span>
             </button>
 
-            {services.map(s => (
+            {loading ? (
+                [1, 2, 3].map(i => <SkeletonServiceCard key={i} />)
+            ) : services.map(s => (
                 <motion.div
                     initial={{ opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
