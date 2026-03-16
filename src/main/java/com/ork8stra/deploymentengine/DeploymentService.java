@@ -107,7 +107,6 @@ public class DeploymentService {
                                                 .build())
                                 .createOrReplace();
 
-                // Create Ingress
                 // Create Ingress with "Premium" hierarchical host
                 String projectPart = project.getName().toLowerCase().replaceAll("[^a-z0-9]", "");
                 String appPart = appName.toLowerCase().replaceAll("[^a-z0-9]", "");
@@ -149,13 +148,16 @@ public class DeploymentService {
                                                 .build())
                                 .createOrReplace();
 
+                String finalUrl = "https://" + host;
+                deployment.setIngressUrl(finalUrl);
                 deployment.setStatus(DeploymentStatus.HEALTHY);
                 deploymentRepository.save(deployment);
 
                 eventPublisher.publishDeploymentStatus(
                                 deployment.getId().toString(),
                                 app.getId().toString(),
-                                DeploymentStatus.HEALTHY.name());
+                                DeploymentStatus.HEALTHY.name(),
+                                finalUrl);
         }
 
         public void stopApplication(Application app, Project project) {
@@ -167,10 +169,14 @@ public class DeploymentService {
                                 .withName(deploymentName)
                                 .scale(0);
 
+                String url = deploymentRepository.findFirstByApplicationIdOrderByDeployedAtDesc(app.getId())
+                                .map(Deployment::getIngressUrl).orElse(null);
+
                 eventPublisher.publishDeploymentStatus(
                                 null,
                                 app.getId().toString(),
-                                "STOPPED");
+                                "STOPPED",
+                                url);
         }
 
         public void startApplication(Application app, Project project) {
@@ -182,10 +188,14 @@ public class DeploymentService {
                                 .withName(deploymentName)
                                 .scale(1);
 
+                String url = deploymentRepository.findFirstByApplicationIdOrderByDeployedAtDesc(app.getId())
+                                .map(Deployment::getIngressUrl).orElse(null);
+
                 eventPublisher.publishDeploymentStatus(
                                 null,
                                 app.getId().toString(),
-                                "ACTIVE");
+                                "ACTIVE",
+                                url);
         }
 
         public void restartApplication(Application app, Project project) {
@@ -197,9 +207,13 @@ public class DeploymentService {
                                 .withName(deploymentName)
                                 .rolling().restart();
 
+                String url = deploymentRepository.findFirstByApplicationIdOrderByDeployedAtDesc(app.getId())
+                                .map(Deployment::getIngressUrl).orElse(null);
+
                 eventPublisher.publishDeploymentStatus(
                                 null,
                                 app.getId().toString(),
-                                "RESTARTING");
+                                "RESTARTING",
+                                url);
         }
 }

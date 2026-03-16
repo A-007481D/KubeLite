@@ -26,6 +26,7 @@ public class ApplicationController {
     private final ApplicationService applicationService;
     private final ProjectService projectService;
     private final DeploymentService deploymentService;
+    private final com.ork8stra.deploymentengine.DeploymentRepository deploymentRepository;
 
     @PostMapping("/projects/{projectId}/apps")
     public ResponseEntity<ApplicationResponse> createApplication(
@@ -106,6 +107,8 @@ public class ApplicationController {
                 .gitRepoUrl(app.getGitRepoUrl())
                 .buildBranch(app.getBuildBranch())
                 .dockerfilePath(app.getDockerfilePath())
+                .liveUrl(deploymentRepository.findFirstByApplicationIdOrderByDeployedAtDesc(app.getId())
+                                .map(com.ork8stra.deploymentengine.Deployment::getIngressUrl).orElse(null))
                 .envVars(app.getEnvVars())
                 .build();
     }
