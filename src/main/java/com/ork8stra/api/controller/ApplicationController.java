@@ -4,6 +4,7 @@ import com.ork8stra.api.dto.ApplicationResponse;
 import com.ork8stra.api.dto.CreateApplicationRequest;
 import com.ork8stra.applicationmanagement.Application;
 import com.ork8stra.applicationmanagement.ApplicationService;
+import com.ork8stra.deploymentengine.Deployment;
 import com.ork8stra.deploymentengine.DeploymentService;
 import com.ork8stra.projectmanagement.Project;
 import com.ork8stra.projectmanagement.ProjectService;
@@ -15,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -100,6 +102,9 @@ public class ApplicationController {
     }
 
     private ApplicationResponse toResponse(Application app) {
+        Optional<Deployment> latestDeployment = deploymentRepository
+                .findFirstByApplicationIdOrderByDeployedAtDesc(app.getId());
+
         return ApplicationResponse.builder()
                 .id(app.getId())
                 .name(app.getName())
@@ -107,8 +112,8 @@ public class ApplicationController {
                 .gitRepoUrl(app.getGitRepoUrl())
                 .buildBranch(app.getBuildBranch())
                 .dockerfilePath(app.getDockerfilePath())
-                .liveUrl(deploymentRepository.findFirstByApplicationIdOrderByDeployedAtDesc(app.getId())
-                                .map(com.ork8stra.deploymentengine.Deployment::getIngressUrl).orElse(null))
+                .liveUrl(latestDeployment.map(Deployment::getIngressUrl).orElse(null))
+                .deploymentStatus(latestDeployment.map(d -> d.getStatus().name()).orElse(null))
                 .envVars(app.getEnvVars())
                 .build();
     }

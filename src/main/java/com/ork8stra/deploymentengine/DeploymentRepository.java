@@ -7,5 +7,6 @@ import java.util.UUID;
 
 public interface DeploymentRepository extends JpaRepository<Deployment, UUID> {
     List<Deployment> findByApplicationId(UUID applicationId);
+    List<Deployment> findByApplicationIdOrderByDeployedAtDesc(UUID applicationId);
     Optional<Deployment> findFirstByApplicationIdOrderByDeployedAtDesc(UUID applicationId);
 }
