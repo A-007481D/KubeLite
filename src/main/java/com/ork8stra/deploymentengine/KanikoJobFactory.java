@@ -169,7 +169,7 @@ public class KanikoJobFactory {
                 + "  echo \"Trying to generate Dockerfile using Nixpacks...\"\n"
                 + "  apt-get update && apt-get install -y curl ca-certificates\n"
                 + "  curl -sSL https://nixpacks.com/install.sh | bash\n"
-                + "  /root/.nixpacks/bin/nixpacks plan \"$TARGET_DIR\" -o \"$TARGET_DIR\" >/tmp/nixpacks.log 2>&1 || true\n"
+                + "  /root/.nixpacks/bin/nixpacks build \"$TARGET_DIR\" --out \"$TARGET_DIR\" >/tmp/nixpacks.log 2>&1 || true\n"
                 + "  if [ -f \"$TARGET_DIR/.nixpacks/Dockerfile\" ]; then\n"
                 + "    cp \"$TARGET_DIR/.nixpacks/Dockerfile\" \"$AUTO_DOCKERFILE\"\n"
                 + "    echo \"Successfully generated Dockerfile via Nixpacks.\"\n"
