@@ -94,10 +94,14 @@ public class DeploymentService {
                 String namespace = project.getK8sNamespace();
                 String deploymentName = resolveDeploymentName(app, project);
 
-                kubernetesClient.apps().deployments()
-                                .inNamespace(namespace)
-                                .withName(deploymentName)
-                                .rolling().restart();
+                if (kubernetesClient.apps().deployments().inNamespace(namespace).withName(deploymentName).get() != null) {
+                        kubernetesClient.apps().deployments()
+                                        .inNamespace(namespace)
+                                        .withName(deploymentName)
+                                        .rolling().restart();
+                } else {
+                        log.warn("Deployment '{}' not found in namespace '{}'. Cannot restart.", deploymentName, namespace);
+                }
 
                 updateLatestDeploymentStatus(app.getId(), DeploymentStatus.RESTARTING, 1);
         }
@@ -246,10 +250,14 @@ public class DeploymentService {
                 String namespace = project.getK8sNamespace();
                 String deploymentName = resolveDeploymentName(app, project);
 
-                kubernetesClient.apps().deployments()
-                                .inNamespace(namespace)
-                                .withName(deploymentName)
-                                .scale(replicas);
+                if (kubernetesClient.apps().deployments().inNamespace(namespace).withName(deploymentName).get() != null) {
+                        kubernetesClient.apps().deployments()
+                                        .inNamespace(namespace)
+                                        .withName(deploymentName)
+                                        .scale(replicas);
+                } else {
+                        log.warn("Deployment '{}' not found in namespace '{}'. Cannot scale to {}.", deploymentName, namespace, replicas);
+                }
         }
 
         private String resolveDeploymentName(Application app, Project project) {
