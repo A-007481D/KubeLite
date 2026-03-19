@@ -353,6 +353,11 @@ export default function CreateServiceWizard({
                 return acc;
             }, {} as Record<string, string>);
 
+            const selectedPort = data.port.trim();
+            if (selectedPort && !envVarMap.PORT) {
+                envVarMap.PORT = selectedPort;
+            }
+
             const sRes = await fetch(`/api/v1/projects/${finalProjectId}/apps`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -360,7 +365,7 @@ export default function CreateServiceWizard({
                     name: data.serviceName,
                     gitRepoUrl: data.repository,
                     buildBranch: data.branch,
-                    dockerfilePath: data.dockerfilePath || "Dockerfile",
+                    dockerfilePath: data.buildType === "dockerfile" ? (data.dockerfilePath || "Dockerfile") : null,
                     envVars: envVarMap
                 }),
             });
@@ -668,14 +673,14 @@ export default function CreateServiceWizard({
                                                 description="Use auto-detection"
                                                 icon={<Zap className="w-5 h-5" />}
                                                 selected={data.buildType === "manual"}
-                                                onClick={() => updateData({ buildType: "manual" })}
+                                                onClick={() => updateData({ buildType: "manual", dockerfilePath: "" })}
                                             />
                                             <SelectionCard
                                                 title="Dockerfile"
                                                 description="Use existing Dockerfile"
                                                 icon={<Box className="w-5 h-5" />}
                                                 selected={data.buildType === "dockerfile"}
-                                                onClick={() => updateData({ buildType: "dockerfile" })}
+                                                onClick={() => updateData({ buildType: "dockerfile", dockerfilePath: data.dockerfilePath || "Dockerfile" })}
                                             />
                                         </div>
                                         {data.buildType === "dockerfile" && (

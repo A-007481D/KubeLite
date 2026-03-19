@@ -50,3 +50,6 @@ minio:
 
 kubelite:
   base-domain: ${KUBELITE_BASE_DOMAIN:local.kubelite.io}
+  image:
+    repository: ${KUBELITE_IMAGE_REPOSITORY:ttl.sh}
+    ttl: ${KUBELITE_IMAGE_TTL:24h}

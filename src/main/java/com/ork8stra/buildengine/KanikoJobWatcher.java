@@ -36,8 +36,9 @@ public class KanikoJobWatcher {
                 .watch(new Watcher<>() {
                     @Override
                     public void eventReceived(Action action, Job job) {
-                        if (action != Action.MODIFIED)
+                        if (action != Action.MODIFIED && action != Action.ADDED) {
                             return;
+                        }
 
                         var status = job.getStatus();
                         if (status == null)
@@ -55,10 +56,10 @@ public class KanikoJobWatcher {
                         if (status.getSucceeded() != null && status.getSucceeded() > 0) {
                             log.info("Build Job '{}' succeeded", job.getMetadata().getName());
                             String imageTag = extractImageTag(job);
-                            buildService.updateBuildStatus(buildId, BuildStatus.SUCCESS, imageTag);
+                            updateIfRunning(buildId, BuildStatus.SUCCESS, imageTag);
                         } else if (status.getFailed() != null && status.getFailed() > 0) {
                             log.warn("Build Job '{}' failed", job.getMetadata().getName());
-                            buildService.updateBuildStatus(buildId, BuildStatus.FAILED, null);
+                            updateIfRunning(buildId, BuildStatus.FAILED, null);
                         }
                     }
 
@@ -131,5 +132,17 @@ public class KanikoJobWatcher {
                 .map(arg -> arg.replace("--destination=", ""))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private void updateIfRunning(UUID buildId, BuildStatus status, String imageTag) {
+        try {
+            Build build = buildService.getBuild(buildId);
+            if (build.getStatus() != BuildStatus.RUNNING) {
+                return;
+            }
+            buildService.updateBuildStatus(buildId, status, imageTag);
+        } catch (Exception e) {
+            log.warn("Skipping watcher update for build '{}': {}", buildId, e.getMessage());
+        }
     }
 }

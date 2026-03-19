@@ -25,8 +25,8 @@ public class CreateApplicationRequest {
     @Builder.Default
     private String buildBranch = "main";
 
-    @Builder.Default
-    private String dockerfilePath = "Dockerfile";
+    // Null/blank means auto-detect mode; non-blank uses an explicit Dockerfile path.
+    private String dockerfilePath;
 
     private Map<String, String> envVars;
 }
