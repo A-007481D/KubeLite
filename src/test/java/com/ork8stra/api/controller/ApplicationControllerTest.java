@@ -59,7 +59,7 @@ public class ApplicationControllerTest {
                 .build();
 
         when(applicationService.createApplication(eq("test-app"), eq(projectId), eq("https://github.com/test"),
-                eq("main"), any(), any()))
+                eq("main"), any(), any(), any()))
                 .thenReturn(application);
 
         mockMvc.perform(post("/api/v1/projects/" + projectId + "/apps")

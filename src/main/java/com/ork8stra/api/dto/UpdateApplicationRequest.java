@@ -9,5 +9,6 @@ public class UpdateApplicationRequest {
     private String gitRepoUrl;
     private String buildBranch;
     private String dockerfilePath;
+    private String startCommand;
     private Map<String, String> envVars;
 }

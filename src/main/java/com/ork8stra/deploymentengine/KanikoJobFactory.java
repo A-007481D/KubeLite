@@ -70,7 +70,7 @@ public class KanikoJobFactory {
         args.add("--cache-repo=" + imageDestination.split(":")[0] + "/cache");
 
         String cloneCommand = buildCloneCommand(gitUrl, branch);
-        String nixpacksCommand = buildNixpacksCommand(localContext, contextSubPath);
+        String nixpacksCommand = buildNixpacksCommand(localContext, contextSubPath, application);
 
         Container gitCloneInit = new ContainerBuilder()
                 .withName("git-clone")
@@ -176,7 +176,7 @@ public class KanikoJobFactory {
                 escapeForDoubleQuotes(gitUrl));
     }
 
-    private String buildNixpacksCommand(String localContext, String contextSubPath) {
+    private String buildNixpacksCommand(String localContext, String contextSubPath, Application app) {
         String targetDir = resolveTargetDir(localContext, contextSubPath);
         String autoDockerfilePath = resolveAutoDockerfilePath(localContext, contextSubPath);
 
@@ -200,24 +200,27 @@ public class KanikoJobFactory {
                 + "#!/bin/bash -l\n"
                 + "set -e\n"
                 + "PORT=${PORT:-80}\n"
-                + "# If db.json exists, start json-server in the background\n"
-                + "if [ -f /app/db.json ]; then\n"
-                + "  echo \"Detected db.json, starting json-server on port 3001...\"\n"
-                + "  npx -y json-server --watch /app/db.json --port 3001 --host 0.0.0.0 > /app/json-server.log 2>&1 &\n"
-                + "fi\n"
-                + "# If dist/ exists, this is a built frontend (Angular/React/Vue) => serve static files\n"
-                + "if [ -d /app/dist ] || [ -d /app/build ]; then\n"
-                + "  DIST_DIR=$(find /app/dist /app/build -name 'index.html' -printf '%h' -quit 2>/dev/null || true)\n"
-                + "  if [ -z \"$DIST_DIR\" ]; then\n"
-                + "    DIST_DIR=$(find /app/dist /app/build -type d -mindepth 1 -maxdepth 3 | head -1 || true)\n"
-                + "  fi\n"
-                + "  if [ -n \"$DIST_DIR\" ] && [ -d \"$DIST_DIR\" ]; then\n"
-                + "    echo \"Serving static files from $DIST_DIR on port $PORT\"\n"
-                + "    exec npx -y serve -s \"$DIST_DIR\" -l $PORT\n"
-                + "  fi\n"
-                + "fi\n"
-                + "echo \"Starting application on port $PORT (with host-check disabled)\"\n"
-                + "exec npm run start -- --host 0.0.0.0 --port $PORT --disable-host-check || exec npm run dev -- --host 0.0.0.0 --port $PORT --disable-host-check\n"
+                + (app.getStartCommand() != null && !app.getStartCommand().isBlank()
+                        ? "echo \"Using custom start command: " + app.getStartCommand() + "\"\n"
+                                + "exec " + app.getStartCommand() + "\n"
+                        : "# If db.json exists, start json-server in the background\n"
+                                + "if [ -f /app/db.json ]; then\n"
+                                + "  echo \"Detected db.json, starting json-server on port 3001...\"\n"
+                                + "  npx -y json-server --watch /app/db.json --port 3001 --host 0.0.0.0 > /app/json-server.log 2>&1 &\n"
+                                + "fi\n"
+                                + "# If dist/ exists, this is a built frontend (Angular/React/Vue) => serve static files\n"
+                                + "if [ -d /app/dist ] || [ -d /app/build ]; then\n"
+                                + "  DIST_DIR=$(find /app/dist /app/build -name 'index.html' -printf '%h' -quit 2>/dev/null || true)\n"
+                                + "  if [ -z \"$DIST_DIR\" ]; then\n"
+                                + "    DIST_DIR=$(find /app/dist /app/build -type d -mindepth 1 -maxdepth 3 | head -1 || true)\n"
+                                + "  fi\n"
+                                + "  if [ -n \"$DIST_DIR\" ] && [ -d \"$DIST_DIR\" ]; then\n"
+                                + "    echo \"Serving static files from $DIST_DIR on port $PORT\"\n"
+                                + "    exec npx -y serve -s \"$DIST_DIR\" -l $PORT\n"
+                                + "  fi\n"
+                                + "fi\n"
+                                + "echo \"Starting application on port $PORT (with host-check disabled)\"\n"
+                                + "exec npm run start -- --host 0.0.0.0 --port $PORT --disable-host-check || exec npm run dev -- --host 0.0.0.0 --port $PORT --disable-host-check\n")
                 + "STARTEOF\n"
                 + "    chmod +x \"$TARGET_DIR/.ork8stra-start.sh\"\n"
                 + "    # Strip existing CMD/ENTRYPOINT and add our own\n"

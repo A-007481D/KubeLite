@@ -18,7 +18,7 @@ public class ApplicationService {
 
     @Transactional
     public Application createApplication(String name, UUID projectId, String gitRepoUrl, String buildBranch,
-            String dockerfilePath, Map<String, String> envVars) {
+            String dockerfilePath, String startCommand, Map<String, String> envVars) {
 
         if (!gitUrlValidator.isValid(gitRepoUrl)) {
             throw new IllegalArgumentException("Invalid or unreachable Git repository URL: " + gitRepoUrl);
@@ -26,6 +26,7 @@ public class ApplicationService {
 
         Application app = new Application(name, projectId, gitRepoUrl, buildBranch);
         app.setDockerfilePath(normalizeDockerfilePath(dockerfilePath));
+        app.setStartCommand(startCommand);
         if (envVars != null) {
             app.setEnvVars(envVars);
         }
@@ -43,7 +44,7 @@ public class ApplicationService {
 
     @Transactional
     public Application updateApplication(UUID applicationId, String gitRepoUrl, String buildBranch,
-            String dockerfilePath, Map<String, String> envVars) {
+            String dockerfilePath, String startCommand, Map<String, String> envVars) {
         Application app = getApplication(applicationId);
 
         if (gitRepoUrl != null && !gitRepoUrl.equals(app.getGitRepoUrl())) {
@@ -57,6 +58,9 @@ public class ApplicationService {
         }
         if (dockerfilePath != null) {
             app.setDockerfilePath(normalizeDockerfilePath(dockerfilePath));
+        }
+        if (startCommand != null) {
+            app.setStartCommand(startCommand);
         }
         if (envVars != null) {
             app.setEnvVars(envVars);

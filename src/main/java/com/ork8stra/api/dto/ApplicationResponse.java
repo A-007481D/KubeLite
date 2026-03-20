@@ -19,6 +19,7 @@ public class ApplicationResponse {
     private String gitRepoUrl;
     private String buildBranch;
     private String dockerfilePath;
+    private String startCommand;
     private String liveUrl;
     private String deploymentStatus;
     private Map<String, String> envVars;
