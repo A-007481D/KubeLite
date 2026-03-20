@@ -26,7 +26,7 @@ public class BuildLogService {
 
     public SseEmitter streamLogs(UUID buildId) {
         Build build = buildService.getBuild(buildId);
-        SseEmitter emitter = new SseEmitter(300_000L);
+        SseEmitter emitter = new SseEmitter(900_000L); // 15 minutes timeout for heavy Nixpacks builds
 
         String jobName = build.getJobName();
         if (jobName == null) {
@@ -46,86 +46,101 @@ public class BuildLogService {
                     if (!pods.isEmpty())
                         break;
 
-                    log.debug("Waiting for pod for job '{}' (attempt {}/30)", jobName, attempt + 1);
                     emitter.send(SseEmitter.event().name("log").data("Waiting for build pod to start..."));
                     Thread.sleep(1000);
                 }
 
                 if (pods.isEmpty()) {
-                    emitter.send(SseEmitter.event()
-                            .name("error")
-                            .data("No pods found for build job: " + jobName));
+                    emitter.send(SseEmitter.event().name("error").data("No pods found for build job: " + jobName));
                     emitter.complete();
                     return;
                 }
 
-                String podName = pods.get(0).getMetadata().getName();
-                String namespace = pods.get(0).getMetadata().getNamespace();
+                Pod pod = pods.get(0);
+                String podName = pod.getMetadata().getName();
+                String namespace = pod.getMetadata().getNamespace();
 
-                // Wait for the 'kaniko' container to be ready or terminated
-                for (int attempt = 0; attempt < 60; attempt++) {
-                    Pod currentPod = kubernetesClient.pods().inNamespace(namespace).withName(podName).get();
-                    if (currentPod == null) break;
+                List<String> containers = List.of("git-clone", "dockerfile-auto-detect", "kaniko");
 
-                    var containerStatus = currentPod.getStatus().getContainerStatuses().stream()
-                            .filter(cs -> cs.getName().equals("kaniko"))
-                            .findFirst()
-                            .orElse(null);
+                for (String containerName : containers) {
+                    // Check if container exists in pod spec
+                    boolean exists = pod.getSpec().getInitContainers().stream().anyMatch(c -> c.getName().equals(containerName)) ||
+                                     pod.getSpec().getContainers().stream().anyMatch(c -> c.getName().equals(containerName));
+                    
+                    if (!exists) continue;
 
-                    if (containerStatus != null && (containerStatus.getState().getRunning() != null || containerStatus.getState().getTerminated() != null)) {
-                        break;
+                    emitter.send(SseEmitter.event().name("log").data("\n--- Stage: " + containerName + " ---"));
+
+                    // Wait for container to be ready to stream
+                    boolean started = false;
+                    for (int attempt = 0; attempt < 300; attempt++) { // Wait up to 10 mins total for container start
+                        Pod currentPod = kubernetesClient.pods().inNamespace(namespace).withName(podName).get();
+                        if (currentPod == null) break;
+
+                        var status = currentPod.getStatus().getInitContainerStatuses().stream()
+                                .filter(cs -> cs.getName().equals(containerName))
+                                .findFirst()
+                                .orElse(null);
+                        
+                        if (status == null) {
+                            status = currentPod.getStatus().getContainerStatuses().stream()
+                                    .filter(cs -> cs.getName().equals(containerName))
+                                    .findFirst()
+                                    .orElse(null);
+                        }
+
+                        if (status != null) {
+                            if (status.getState().getTerminated() != null) {
+                                if (status.getState().getTerminated().getExitCode() != 0) {
+                                    emitter.send(SseEmitter.event().name("error").data("Stage '" + containerName + "' failed with exit code " + status.getState().getTerminated().getExitCode()));
+                                    emitter.complete();
+                                    return;
+                                }
+                                started = true; // Was successful, but already finished
+                                break;
+                            }
+                            if (status.getState().getRunning() != null) {
+                                started = true;
+                                break;
+                            }
+                        }
+                        
+                        if (attempt % 5 == 0) {
+                            emitter.send(SseEmitter.event().name("log").data("Waiting for " + containerName + " to start..."));
+                        }
+                        Thread.sleep(2000);
                     }
 
-                    // Also check if an init container failed
-                    var initStatus = currentPod.getStatus().getInitContainerStatuses().stream()
-                            .filter(cs -> cs.getState().getTerminated() != null && cs.getState().getTerminated().getExitCode() != 0)
-                            .findFirst()
-                            .orElse(null);
-
-                    if (initStatus != null) {
-                        emitter.send(SseEmitter.event().name("log").data("Init container '" + initStatus.getName() + "' failed with exit code " + initStatus.getState().getTerminated().getExitCode()));
-                        emitter.send(SseEmitter.event().name("error").data("Initialization failed"));
-                        emitter.complete();
-                        return;
+                    if (!started) {
+                        emitter.send(SseEmitter.event().name("log").data("Skipping logs for " + containerName + " (timed out or not started)"));
+                        continue;
                     }
 
-                    log.debug("Waiting for kaniko container to start (attempt {}/60)", attempt + 1);
-                    emitter.send(SseEmitter.event().name("log").data("Waiting for build container to start..."));
-                    Thread.sleep(2000);
+                    try (LogWatch logWatch = kubernetesClient.pods()
+                            .inNamespace(namespace)
+                            .withName(podName)
+                            .inContainer(containerName)
+                            .watchLog()) {
+
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(logWatch.getOutput()));
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            emitter.send(SseEmitter.event().name("log").data(line));
+                        }
+                    } catch (Exception e) {
+                        log.warn("Error streaming logs for container {}: {}", containerName, e.getMessage());
+                    }
                 }
 
-                log.info("Streaming logs for pod '{}' in namespace '{}'", podName, namespace);
+                emitter.send(SseEmitter.event().name("complete").data("Build log stream ended"));
+                emitter.complete();
 
-                try (LogWatch logWatch = kubernetesClient.pods()
-                        .inNamespace(namespace)
-                        .withName(podName)
-                        .inContainer("kaniko")
-                        .tailingLines(100)
-                        .watchLog()) {
-
-                    BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(logWatch.getOutput()));
-
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        emitter.send(SseEmitter.event()
-                                .name("log")
-                                .data(line));
-                    }
-
-                    emitter.send(SseEmitter.event()
-                            .name("complete")
-                            .data("Build log stream ended"));
-                    emitter.complete();
-                }
             } catch (Exception e) {
                 log.error("Error streaming build logs for build '{}'", buildId, e);
                 try {
-                    emitter.send(SseEmitter.event()
-                            .name("error")
-                            .data("Log streaming error: " + e.getMessage()));
-                } catch (Exception ignored) {
-                }
+                    String errorMsg = e.getMessage() != null ? e.getMessage() : "Internal server error while streaming logs";
+                    emitter.send(SseEmitter.event().name("error").data("Log streaming error: " + errorMsg));
+                } catch (Exception ignored) {}
                 emitter.completeWithError(e);
             }
         });

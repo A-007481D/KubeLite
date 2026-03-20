@@ -338,6 +338,8 @@ const ServiceDetail = ({ service, project, token, onUpdate, onDelete }: { servic
     const [lifecycleLoading, setLifecycleLoading] = useState<'stop' | 'start' | 'restart' | null>(null);
     const [metrics, setMetrics] = useState<{ cpuMillicores: number; memoryMiB: number; podCount: number } | null>(null);
     const { toasts, addToast, removeToast } = useToast();
+    const fallbackPublicHost = `${service.name.toLowerCase().replaceAll(/[^a-z0-9]/g, "")}.${project.name.toLowerCase().replaceAll(/[^a-z0-9]/g, "")}.local.kubelite.io`;
+    const configPublicUrl = liveUrl || `https://${fallbackPublicHost}`;
 
     const mapBuildStatusToUi = (status: string): 'building' | 'success' | 'failed' => {
         if (status === 'RUNNING' || status === 'PENDING') return 'building';
@@ -733,12 +735,12 @@ const ServiceDetail = ({ service, project, token, onUpdate, onDelete }: { servic
                                     Public URL (HTTPS)
                                 </span>
                                 <a
-                                    href={`https://${service.name.toLowerCase().replaceAll(/[^a-z0-9]/g, "")}.${project.name.toLowerCase().replaceAll(/[^a-z0-9]/g, "")}.local.kubelite.io`}
+                                    href={configPublicUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-colors group/link"
                                 >
-                                    <span className="truncate">{service.name.toLowerCase().replaceAll(/[^a-z0-9]/g, "")}.{project.name.toLowerCase().replaceAll(/[^a-z0-9]/g, "")}.local.kubelite.io</span>
+                                    <span className="truncate">{configPublicUrl.replace(/^https?:\/\//, "")}</span>
                                     <ArrowUpRight className="w-3 h-3 shrink-0 opacity-0 group-hover/link:opacity-100 transition-opacity" />
                                 </a>
                             </div>

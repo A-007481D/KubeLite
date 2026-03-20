@@ -10,6 +10,7 @@ import com.ork8stra.projectmanagement.Project;
 import com.ork8stra.projectmanagement.ProjectService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,12 +30,18 @@ public class BuildController {
     private final BuildService buildService;
     private final BuildLogService buildLogService;
 
+    @Value("${kubelite.image.repository:ttl.sh}")
+    private String imageRepository;
+
+    @Value("${kubelite.image.ttl:24h}")
+    private String ttlShTagTtl;
+
     @PostMapping
     public ResponseEntity<BuildResponse> triggerBuild(@PathVariable UUID appId) {
         Application app = applicationService.getApplication(appId);
         Project project = projectService.getProjectById(app.getProjectId());
 
-        String imageTag = "ttl.sh/ork8stra-" + app.getId().toString() + ":1h";
+        String imageTag = resolveImageTag(app);
 
         log.info("Triggering build for app '{}' into namespace '{}' targeting image '{}'",
                 app.getName(), project.getK8sNamespace(), imageTag);
@@ -59,5 +66,48 @@ public class BuildController {
     @GetMapping(value = "/{buildId}/logs", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamBuildLogs(@PathVariable UUID appId, @PathVariable UUID buildId) {
         return buildLogService.streamLogs(buildId);
+    }
+
+    private String resolveImageTag(Application app) {
+        String normalizedRepo = imageRepository;
+        
+        // Dynamic discovery: if repository is null, empty, or "AUTO", try to find local-registry service
+        if (normalizedRepo == null || normalizedRepo.isEmpty() || "AUTO".equalsIgnoreCase(normalizedRepo)) {
+            try {
+                // Try standard Minikube locations
+                var svc = projectService.getKubernetesClient().services().inNamespace("kube-system").withName("local-registry").get();
+                if (svc == null) {
+                    svc = projectService.getKubernetesClient().services().inNamespace("kube-system").withName("registry").get();
+                }
+                if (svc == null) {
+                    svc = projectService.getKubernetesClient().services().inNamespace("container-registry").withName("local-registry").get();
+                }
+                
+                if (svc != null && svc.getSpec() != null && svc.getSpec().getClusterIP() != null) {
+                    int port = 5000;
+                    if (svc.getSpec().getPorts() != null && !svc.getSpec().getPorts().isEmpty()) {
+                        port = svc.getSpec().getPorts().get(0).getPort();
+                    }
+                    normalizedRepo = svc.getSpec().getClusterIP() + ":" + port; 
+                    log.info("Dynamically discovered local registry at {} (using port {})", normalizedRepo, port);
+                } else {
+                    normalizedRepo = "ttl.sh";
+                }
+            } catch (Exception e) {
+                log.warn("Failed to discover local registry, falling back to ttl.sh: {}", e.getMessage());
+                normalizedRepo = "ttl.sh";
+            }
+        }
+
+        String appRef = "ork8stra-" + app.getId();
+
+        if ("ttl.sh".equalsIgnoreCase(normalizedRepo)) {
+            return "ttl.sh/" + appRef + ":" + ttlShTagTtl;
+        }
+
+        String repoPrefix = normalizedRepo.endsWith("/")
+                ? normalizedRepo.substring(0, normalizedRepo.length() - 1)
+                : normalizedRepo;
+        return repoPrefix + "/" + appRef + ":latest";
     }
 }

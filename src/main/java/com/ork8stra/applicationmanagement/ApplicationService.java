@@ -25,7 +25,7 @@ public class ApplicationService {
         }
 
         Application app = new Application(name, projectId, gitRepoUrl, buildBranch);
-        app.setDockerfilePath(dockerfilePath != null ? dockerfilePath : "Dockerfile");
+        app.setDockerfilePath(normalizeDockerfilePath(dockerfilePath));
         if (envVars != null) {
             app.setEnvVars(envVars);
         }
@@ -56,7 +56,7 @@ public class ApplicationService {
             app.setBuildBranch(buildBranch);
         }
         if (dockerfilePath != null) {
-            app.setDockerfilePath(dockerfilePath);
+            app.setDockerfilePath(normalizeDockerfilePath(dockerfilePath));
         }
         if (envVars != null) {
             app.setEnvVars(envVars);
@@ -68,5 +68,25 @@ public class ApplicationService {
     public void deleteApplication(UUID applicationId) {
         Application app = getApplication(applicationId);
         applicationRepository.delete(app);
+    }
+
+    private String normalizeDockerfilePath(String dockerfilePath) {
+        if (dockerfilePath == null) {
+            return null;
+        }
+        String trimmed = dockerfilePath.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+
+        String normalized = trimmed.toLowerCase();
+        if (normalized.equals("auto")
+                || normalized.equals("autodetect")
+                || normalized.equals("auto-detect")
+                || normalized.equals("manual")) {
+            return null;
+        }
+
+        return trimmed;
     }
 }

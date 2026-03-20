@@ -15,10 +15,11 @@ public class KubernetesConfig {
     @Bean
     @Profile("!no-k8s")
     public KubernetesClient kubernetesClient() {
-        io.fabric8.kubernetes.client.Config config = new io.fabric8.kubernetes.client.ConfigBuilder()
-                .withConnectionTimeout(2000)
-                .withRequestTimeout(2000)
+        // Force the client to use the system's kubeconfig and ignore any accidental in-cluster environments
+        io.fabric8.kubernetes.client.Config config = io.fabric8.kubernetes.client.Config.autoConfigure(null);
+        
+        return new KubernetesClientBuilder()
+                .withConfig(config)
                 .build();
-        return new KubernetesClientBuilder().withConfig(config).build();
     }
 }
