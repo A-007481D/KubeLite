@@ -143,8 +143,6 @@ public class KanikoJobFactory {
                 .endMetadata()
                 .withNewSpec()
                 .withRestartPolicy("Never")
-                .withHostNetwork(true)
-                .withDnsPolicy("ClusterFirstWithHostNet")
                 .withInitContainers(initContainers)
                 .withContainers(kanikoContainer)
                 .withVolumes(workspaceVolume)

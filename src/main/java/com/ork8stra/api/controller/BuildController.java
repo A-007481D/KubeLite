@@ -69,9 +69,27 @@ public class BuildController {
     }
 
     private String resolveImageTag(Application app) {
-        String normalizedRepo = imageRepository == null ? "ttl.sh" : imageRepository.trim();
-        if (normalizedRepo.isEmpty()) {
-            normalizedRepo = "ttl.sh";
+        String normalizedRepo = imageRepository;
+        
+        // Dynamic discovery: if repository is null, empty, or "AUTO", try to find local-registry service
+        if (normalizedRepo == null || normalizedRepo.isEmpty() || "AUTO".equalsIgnoreCase(normalizedRepo)) {
+            try {
+                // Try standard Minikube locations
+                var svc = projectService.getKubernetesClient().services().inNamespace("kube-system").withName("local-registry").get();
+                if (svc == null) {
+                    svc = projectService.getKubernetesClient().services().inNamespace("container-registry").withName("local-registry").get();
+                }
+                
+                if (svc != null) {
+                    normalizedRepo = "local-registry.kube-system:5000"; // Use stable DNS name
+                    log.info("Dynamically discovered local registry: {}", normalizedRepo);
+                } else {
+                    normalizedRepo = "ttl.sh";
+                }
+            } catch (Exception e) {
+                log.warn("Failed to discover local registry, falling back to ttl.sh: {}", e.getMessage());
+                normalizedRepo = "ttl.sh";
+            }
         }
 
         String appRef = "ork8stra-" + app.getId();

@@ -286,7 +286,30 @@ public class DeploymentService {
         private String buildIngressHost(Project project, Application app) {
                 String projectPart = toDnsLabel(project.getName());
                 String appPart = toDnsLabel(app.getName());
-                return String.format("%s.%s.%s", appPart, projectPart, baseDomain);
+
+                String effectiveDomain = baseDomain;
+                if (effectiveDomain == null || effectiveDomain.isEmpty() || effectiveDomain.contains("AUTO") || effectiveDomain.contains(".sslip.io")) {
+                        String nodeIp = discoverNodeIp();
+                        if (nodeIp != null) {
+                                effectiveDomain = nodeIp + ".sslip.io";
+                        }
+                }
+
+                return String.format("%s.%s.%s", appPart, projectPart, effectiveDomain);
+        }
+
+        private String discoverNodeIp() {
+                try {
+                        return kubernetesClient.nodes().list().getItems().stream()
+                                        .flatMap(node -> node.getStatus().getAddresses().stream())
+                                        .filter(addr -> "InternalIP".equals(addr.getType()))
+                                        .map(addr -> addr.getAddress())
+                                        .findFirst()
+                                        .orElse(null);
+                } catch (Exception e) {
+                        log.warn("Failed to discover node IP for dynamic DNS: {}", e.getMessage());
+                        return null;
+                }
         }
 
         private String toKubernetesName(String rawName) {
@@ -297,7 +320,6 @@ public class DeploymentService {
         }
 
         private String toDnsLabel(String value) {
-                String normalized = value.toLowerCase().replaceAll("[^a-z0-9]", "");
                 return normalized.isBlank() ? "app" : normalized;
         }
 }
