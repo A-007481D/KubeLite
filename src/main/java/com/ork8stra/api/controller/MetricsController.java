@@ -37,9 +37,22 @@ public class MetricsController {
                 Application app = applicationService.getApplication(appId);
                 Project project = projectService.getProjectById(app.getProjectId());
                 String namespace = project.getK8sNamespace();
-                String appName = app.getName().toLowerCase().replaceAll("[^a-z0-9]", "");
-
+                String appName = app.getName().toLowerCase().replaceAll("[^a-z0-9-]", "-")
+                        .replaceAll("-+", "-")
+                        .replaceAll("^-|-$", "");
                 for (int i = 0; i < 150; i++) {
+                    int actualPodCount = 0;
+                    try {
+                        actualPodCount = kubernetesClient.pods()
+                                .inNamespace(namespace)
+                                .withLabel("app", appName)
+                                .list()
+                                .getItems()
+                                .size();
+                    } catch (Exception e) {
+                        // ignore
+                    }
+
                     List<PodMetrics> podMetricsList;
                     try {
                         podMetricsList = kubernetesClient.top().pods()
@@ -75,7 +88,7 @@ public class MetricsController {
                     Map<String, Object> payload = new LinkedHashMap<>();
                     payload.put("cpuMillicores", cpuNanos / 1_000_000);
                     payload.put("memoryMiB", memBytes / (1024 * 1024));
-                    payload.put("podCount", podMetricsList.size());
+                    payload.put("podCount", actualPodCount);
                     payload.put("timestamp", System.currentTimeMillis());
 
                     emitter.send(SseEmitter.event().name("metrics").data(payload));

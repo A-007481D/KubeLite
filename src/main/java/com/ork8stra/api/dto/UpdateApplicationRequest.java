@@ -10,5 +10,6 @@ public class UpdateApplicationRequest {
     private String buildBranch;
     private String dockerfilePath;
     private String startCommand;
+    private Integer containerPort;
     private Map<String, String> envVars;
 }

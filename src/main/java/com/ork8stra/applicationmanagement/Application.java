@@ -24,6 +24,7 @@ public class Application {
     private String buildBranch;
     private String dockerfilePath;
     private String startCommand;
+    private Integer containerPort;
 
     @ElementCollection
     @CollectionTable(name = "application_env_vars", joinColumns = @JoinColumn(name = "application_id"))

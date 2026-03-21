@@ -31,9 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -123,6 +121,7 @@ public class DeploymentService {
                 Map<String, String> envVars = buildRuntimeEnv(app, project, containerPort);
 
                 ensureNamespace(project);
+                ensureErrorHandler(project);
 
                 kubernetesClient.apps().deployments().inNamespace(namespace).resource(
                                 new DeploymentBuilder()
@@ -174,7 +173,7 @@ public class DeploymentService {
                                                 .addNewPort()
                                                 .withName("http")
                                                 .withPort(80)
-                                                .withTargetPort(new IntOrString(80))
+                                                .withTargetPort(new IntOrString(app.getContainerPort() != null ? app.getContainerPort() : 8080))
                                                 .endPort()
                                                 .addNewPort()
                                                 .withName("api")
@@ -195,6 +194,8 @@ public class DeploymentService {
                                 .addToAnnotations("cert-manager.io/cluster-issuer", "kubelite-selfsigned")
                                 .addToAnnotations("nginx.ingress.kubernetes.io/ssl-redirect", "true")
                                 .addToAnnotations("nginx.ingress.kubernetes.io/rewrite-target", "/$2")
+                                .addToAnnotations("nginx.ingress.kubernetes.io/custom-http-errors", "502,503")
+                                .addToAnnotations("nginx.ingress.kubernetes.io/default-backend", "kubelite-error-handler")
                                 .endMetadata()
                                 .withNewSpec()
                                 .withTls(new IngressTLSBuilder()
@@ -462,6 +463,130 @@ public class DeploymentService {
                         log.warn("Failed to discover node IP for dynamic DNS: {}", e.getMessage());
                         return null;
                 }
+        }
+
+        private void ensureErrorHandler(Project project) {
+                String namespace = project.getK8sNamespace();
+                String handlerName = "kubelite-error-handler";
+
+                String nginxConf = "events { worker_connections 1024; }\n" +
+                        "http {\n" +
+                        "    include mime.types;\n" +
+                        "    default_type application/octet-stream;\n" +
+                        "    server {\n" +
+                        "        listen 80;\n" +
+                        "        error_page 404 500 502 503 504 /error.html;\n" +
+                        "        location / {\n" +
+                        "            return 503;\n" +
+                        "        }\n" +
+                        "        location = /error.html {\n" +
+                        "            root /usr/share/nginx/html;\n" +
+                        "            internal;\n" +
+                        "        }\n" +
+                        "    }\n" +
+                        "}\n";
+
+                String errorHtml = "<!DOCTYPE html>\n" +
+                        "<html lang=\"en\">\n" +
+                        "<head>\n" +
+                        "    <meta charset=\"UTF-8\">\n" +
+                        "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                        "    <meta http-equiv=\"refresh\" content=\"3\">\n" +
+                        "    <title>Application Starting | KubeLite</title>\n" +
+                        "    <style>\n" +
+                        "        body { margin: 0; padding: 0; background-color: #0A0A0A; color: #E3E3E3; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; text-align: center; }\n" +
+                        "        .spinner { width: 40px; height: 40px; border: 3px solid rgba(255, 255, 255, 0.1); border-radius: 50%; border-top-color: #10B981; animation: spin 1s ease-in-out infinite; margin-bottom: 20px; }\n" +
+                        "        @keyframes spin { to { transform: rotate(360deg); } }\n" +
+                        "        h1 { font-size: 24px; font-weight: 500; margin: 0 0 8px 0; letter-spacing: -0.5px; }\n" +
+                        "        p { color: #888; font-size: 14px; margin: 0; }\n" +
+                        "        .container { background: #111; padding: 40px 60px; border-radius: 12px; border: 1px solid #222; box-shadow: 0 8px 32px rgba(0,0,0,0.4); display: flex; flex-direction: column; align-items: center; }\n" +
+                        "        .brand { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #555; margin-top: 30px; }\n" +
+                        "    </style>\n" +
+                        "</head>\n" +
+                        "<body>\n" +
+                        "    <div class=\"container\">\n" +
+                        "        <div class=\"spinner\"></div>\n" +
+                        "        <h1>Application is Starting</h1>\n" +
+                        "        <p>Your pod is spinning up. Hang tight, this page will auto-refresh.</p>\n" +
+                        "    </div>\n" +
+                        "    <div class=\"brand\">Powered by KubeLite</div>\n" +
+                        "</body>\n" +
+                        "</html>\n";
+
+                kubernetesClient.configMaps().inNamespace(namespace).resource(
+                        new io.fabric8.kubernetes.api.model.ConfigMapBuilder()
+                                .withNewMetadata()
+                                .withName(handlerName + "-config")
+                                .endMetadata()
+                                .addToData("nginx.conf", nginxConf)
+                                .addToData("error.html", errorHtml)
+                                .build()
+                ).createOrReplace();
+
+                // 2. Deployment
+                kubernetesClient.apps().deployments().inNamespace(namespace).resource(
+                        new io.fabric8.kubernetes.api.model.apps.DeploymentBuilder()
+                                .withNewMetadata()
+                                .withName(handlerName)
+                                .addToLabels("app", handlerName)
+                                .endMetadata()
+                                .withNewSpec()
+                                .withReplicas(1)
+                                .withNewSelector()
+                                .addToMatchLabels("app", handlerName)
+                                .endSelector()
+                                .withNewTemplate()
+                                .withNewMetadata()
+                                .addToLabels("app", handlerName)
+                                .endMetadata()
+                                .withNewSpec()
+                                .addNewContainer()
+                                .withName(handlerName)
+                                .withImage("nginx:alpine")
+                                .addNewPort().withContainerPort(80).endPort()
+                                .addNewVolumeMount()
+                                .withName("config-volume")
+                                .withMountPath("/etc/nginx/nginx.conf")
+                                .withSubPath("nginx.conf")
+                                .endVolumeMount()
+                                .addNewVolumeMount()
+                                .withName("html-volume")
+                                .withMountPath("/usr/share/nginx/html/error.html")
+                                .withSubPath("error.html")
+                                .endVolumeMount()
+                                .endContainer()
+                                .addNewVolume()
+                                .withName("config-volume")
+                                .withNewConfigMap().withName(handlerName + "-config").endConfigMap()
+                                .endVolume()
+                                .addNewVolume()
+                                .withName("html-volume")
+                                .withNewConfigMap().withName(handlerName + "-config").endConfigMap()
+                                .endVolume()
+                                .endSpec()
+                                .endTemplate()
+                                .endSpec()
+                                .build()
+                ).createOrReplace();
+
+                // 3. Service
+                kubernetesClient.services().inNamespace(namespace).resource(
+                        new io.fabric8.kubernetes.api.model.ServiceBuilder()
+                                .withNewMetadata()
+                                .withName(handlerName)
+                                .addToLabels("app", handlerName)
+                                .endMetadata()
+                                .withNewSpec()
+                                .withSelector(java.util.Collections.singletonMap("app", handlerName))
+                                .addNewPort()
+                                .withName("http")
+                                .withPort(80)
+                                .withTargetPort(new io.fabric8.kubernetes.api.model.IntOrString(80))
+                                .endPort()
+                                .withType("ClusterIP")
+                                .endSpec()
+                                .build()
+                ).createOrReplace();
         }
 
         private String toKubernetesName(String rawName) {

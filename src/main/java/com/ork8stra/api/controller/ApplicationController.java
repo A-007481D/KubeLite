@@ -43,6 +43,7 @@ public class ApplicationController {
                 request.getBuildBranch(),
                 request.getDockerfilePath(),
                 request.getStartCommand(),
+                request.getContainerPort(),
                 request.getEnvVars());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(app));
@@ -68,7 +69,7 @@ public class ApplicationController {
             @RequestBody com.ork8stra.api.dto.UpdateApplicationRequest request) {
         Application updated = applicationService.updateApplication(
                 id, request.getGitRepoUrl(), request.getBuildBranch(), request.getDockerfilePath(),
-                request.getStartCommand(), request.getEnvVars());
+                request.getStartCommand(), request.getContainerPort(), request.getEnvVars());
         return ResponseEntity.ok(toResponse(updated));
     }
 
@@ -114,6 +115,7 @@ public class ApplicationController {
                 .buildBranch(app.getBuildBranch())
                 .dockerfilePath(app.getDockerfilePath())
                 .startCommand(app.getStartCommand())
+                .containerPort(app.getContainerPort())
                 .liveUrl(latestDeployment.map(Deployment::getIngressUrl).orElse(null))
                 .deploymentStatus(latestDeployment.map(d -> d.getStatus().name()).orElse(null))
                 .envVars(app.getEnvVars())

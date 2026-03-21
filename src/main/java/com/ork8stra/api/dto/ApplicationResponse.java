@@ -20,6 +20,7 @@ public class ApplicationResponse {
     private String buildBranch;
     private String dockerfilePath;
     private String startCommand;
+    private Integer containerPort;
     private String liveUrl;
     private String deploymentStatus;
     private Map<String, String> envVars;

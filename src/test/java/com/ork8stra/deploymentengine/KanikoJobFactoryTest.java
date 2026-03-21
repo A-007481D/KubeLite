@@ -3,20 +3,36 @@ package com.ork8stra.deploymentengine;
 import com.ork8stra.applicationmanagement.Application;
 import com.ork8stra.projectmanagement.Project;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.Resource;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Answers;
 
 import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class KanikoJobFactoryTest {
 
-    private final KanikoJobFactory factory = new KanikoJobFactory();
+    private KubernetesClient kubernetesClient;
+    private KanikoJobFactory factory;
+
+    @BeforeEach
+    void setUp() {
+        kubernetesClient = mock(KubernetesClient.class, Answers.RETURNS_DEEP_STUBS);
+        factory = new KanikoJobFactory(kubernetesClient);
+    }
 
     @Test
     void createKanikoJob_usesGeneratedDockerfileInAutoMode() {
+        // ... (rest of the test)
         UUID projectId = UUID.randomUUID();
         Application app = new Application("node-service", projectId, "https://github.com/acme/node-service", "main");
         app.setDockerfilePath(null);

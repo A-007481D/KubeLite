@@ -28,5 +28,6 @@ public class CreateApplicationRequest {
     // Null/blank means auto-detect mode; non-blank uses an explicit Dockerfile path.
     private String dockerfilePath;
     private String startCommand;
+    private Integer containerPort;
     private Map<String, String> envVars;
 }

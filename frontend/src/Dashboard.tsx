@@ -515,13 +515,14 @@ const ServiceDetail = ({ service, project, token, onUpdate, onDelete }: { servic
     };
 
     useEffect(() => {
-        const eventSource = new EventSource(`/api/v1/apps/${service.id}/metrics`);
+        if (!token) return;
+        const eventSource = new EventSource(`/api/v1/apps/${service.id}/metrics?token=${token}`);
         eventSource.addEventListener('metrics', (event: MessageEvent) => {
             try { setMetrics(JSON.parse(event.data)); } catch { /* ignore */ }
         });
         eventSource.onerror = () => eventSource.close();
         return () => eventSource.close();
-    }, [service.id]);
+    }, [service.id, token]);
 
     return (
         <div className="flex-1 flex flex-col overflow-hidden h-full">

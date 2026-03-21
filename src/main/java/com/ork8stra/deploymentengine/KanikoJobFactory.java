@@ -12,6 +12,10 @@ import io.fabric8.kubernetes.api.model.VolumeBuilder;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
+import io.fabric8.kubernetes.api.model.PersistentVolumeClaimBuilder;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -19,10 +23,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class KanikoJobFactory {
 
+    private final KubernetesClient kubernetesClient;
+
     public Job createKanikoJob(Application application, Project project, String imageDestination, UUID buildId) {
+        ensureCachingPvcs(project);
         String sanitizedAppName = application.getName().toLowerCase().replaceAll("[^a-z0-9]", "");
         String jobName = "build-" + sanitizedAppName + "-" + UUID.randomUUID().toString().substring(0, 8);
         String gitUrl = application.getGitRepoUrl();
@@ -80,6 +89,14 @@ public class KanikoJobFactory {
                 .withVolumeMounts(new VolumeMountBuilder()
                         .withName("workspace")
                         .withMountPath("/workspace")
+                        .build(),
+                        new VolumeMountBuilder()
+                        .withName("maven-cache")
+                        .withMountPath("/root/.m2")
+                        .build(),
+                        new VolumeMountBuilder()
+                        .withName("nix-cache")
+                        .withMountPath("/nix")
                         .build())
                 .build();
 
@@ -95,6 +112,14 @@ public class KanikoJobFactory {
                     .withVolumeMounts(new VolumeMountBuilder()
                             .withName("workspace")
                             .withMountPath("/workspace")
+                            .build(),
+                            new VolumeMountBuilder()
+                            .withName("maven-cache")
+                            .withMountPath("/root/.m2")
+                            .build(),
+                            new VolumeMountBuilder()
+                            .withName("nix-cache")
+                            .withMountPath("/nix")
                             .build())
                     .build();
             initContainers.add(nixpacksInit);
@@ -122,6 +147,10 @@ public class KanikoJobFactory {
                 .withVolumeMounts(new VolumeMountBuilder()
                         .withName("workspace")
                         .withMountPath("/workspace")
+                        .build(),
+                        new VolumeMountBuilder()
+                        .withName("maven-cache")
+                        .withMountPath("/cache")
                         .build())
                 .build();
 
@@ -129,6 +158,20 @@ public class KanikoJobFactory {
                 .withName("workspace")
                 .withNewEmptyDir()
                 .endEmptyDir()
+                .build();
+
+        Volume mavenCacheVolume = new VolumeBuilder()
+                .withName("maven-cache")
+                .withNewPersistentVolumeClaim()
+                .withClaimName("ork8stra-maven-cache")
+                .endPersistentVolumeClaim()
+                .build();
+
+        Volume nixCacheVolume = new VolumeBuilder()
+                .withName("nix-cache")
+                .withNewPersistentVolumeClaim()
+                .withClaimName("ork8stra-nix-cache")
+                .endPersistentVolumeClaim()
                 .build();
 
         return new JobBuilder()
@@ -150,7 +193,7 @@ public class KanikoJobFactory {
                 .withRestartPolicy("Never")
                 .withInitContainers(initContainers)
                 .withContainers(Collections.singletonList(kanikoContainer))
-                .withVolumes(workspaceVolume)
+                .withVolumes(workspaceVolume, mavenCacheVolume, nixCacheVolume)
                 .endSpec()
                 .endTemplate()
                 .endSpec()
@@ -218,15 +261,21 @@ public class KanikoJobFactory {
                                 + "    exec npx -y serve -s \"$DIST_DIR\" -l $PORT\n"
                                 + "  fi\n"
                                 + "fi\n"
-                                + "echo \"Starting application on port $PORT (with host-check disabled)\"\n"
+                                + "# If target/*.jar exists, this is a Java/Maven application\n"
+                                + "JAR_FILE=$(find /app/target /app/build/libs -name '*.jar' | head -1 || true)\n"
+                                + "if [ -n \"$JAR_FILE\" ] && [ -f \"$JAR_FILE\" ]; then\n"
+                                + "  echo \"Starting Java application on port $PORT: $JAR_FILE\"\n"
+                                + "  exec java -Dserver.port=$PORT -jar \"$JAR_FILE\"\n"
+                                + "fi\n"
+                                + "echo \"Starting application on port $PORT (defaulting to Node/Vite fallback)\"\n"
                                 + "exec npm run start -- --host 0.0.0.0 --port $PORT --disable-host-check || exec npm run dev -- --host 0.0.0.0 --port $PORT --disable-host-check\n")
                 + "STARTEOF\n"
                 + "    chmod +x \"$TARGET_DIR/.ork8stra-start.sh\"\n"
                 + "    # Strip existing CMD/ENTRYPOINT and add our own\n"
                 + "    grep -v '^CMD\\|^ENTRYPOINT' \"$AUTO_DOCKERFILE\" > \"$AUTO_DOCKERFILE.tmp\" || true\n"
                 + "    mv \"$AUTO_DOCKERFILE.tmp\" \"$AUTO_DOCKERFILE\"\n"
-                + "    echo 'ENV PORT=80' >> \"$AUTO_DOCKERFILE\"\n"
-                + "    echo 'EXPOSE 80' >> \"$AUTO_DOCKERFILE\"\n"
+                + "    echo \"ENV PORT=" + (app.getContainerPort() != null ? app.getContainerPort() : 8080) + "\" >> \"$AUTO_DOCKERFILE\"\n"
+                + "    echo \"EXPOSE " + (app.getContainerPort() != null ? app.getContainerPort() : 8080) + "\" >> \"$AUTO_DOCKERFILE\"\n"
                 + "    echo 'COPY .ork8stra-start.sh /app/.ork8stra-start.sh' >> \"$AUTO_DOCKERFILE\"\n"
                 + "    echo 'ENTRYPOINT []' >> \"$AUTO_DOCKERFILE\"\n"
                 + "    echo 'CMD [\"/bin/bash\", \"/app/.ork8stra-start.sh\"]' >> \"$AUTO_DOCKERFILE\"\n"
@@ -240,7 +289,7 @@ public class KanikoJobFactory {
                 + "FROM maven:3.9-eclipse-temurin-17 AS build\n"
                 + "WORKDIR /app\n"
                 + "COPY . .\n"
-                + "RUN mvn -B -DskipTests package\n"
+                + "RUN --mount=type=cache,target=/root/.m2 mvn -B -DskipTests package\n"
                 + "\n"
                 + "FROM eclipse-temurin:17-jre\n"
                 + "WORKDIR /app\n"
@@ -302,5 +351,32 @@ public class KanikoJobFactory {
 
     private String escapeForDoubleQuotes(String input) {
         return input.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private void ensureCachingPvcs(Project project) {
+        String namespace = project.getK8sNamespace();
+        ensurePvc(namespace, "ork8stra-maven-cache", "5Gi");
+        ensurePvc(namespace, "ork8stra-nix-cache", "10Gi");
+    }
+
+    private void ensurePvc(String namespace, String name, String size) {
+        if (kubernetesClient.persistentVolumeClaims().inNamespace(namespace).withName(name).get() == null) {
+            log.info("Creating PVC '{}' in namespace '{}' for build caching", name, namespace);
+            kubernetesClient.persistentVolumeClaims().inNamespace(namespace).resource(
+                    new PersistentVolumeClaimBuilder()
+                            .withNewMetadata()
+                                .withName(name)
+                                .addToLabels("managed-by", "ork8stra")
+                                .addToLabels("purpose", "build-cache")
+                            .endMetadata()
+                            .withNewSpec()
+                                .withAccessModes("ReadWriteOnce")
+                                .withNewResources()
+                                    .addToRequests("storage", new Quantity(size))
+                                .endResources()
+                            .endSpec()
+                            .build()
+            ).create();
+        }
     }
 }
