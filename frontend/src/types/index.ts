@@ -130,6 +130,7 @@ export interface Service {
 
 export type ViewState =
     | { type: 'GLOBAL' }
+    | { type: 'OBSERVABILITY' }
     | { type: 'ROOT' }
     | { type: 'PROJECT'; project: Project }
     | { type: 'SERVICE'; service: Service; project: Project }
