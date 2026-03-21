@@ -22,6 +22,7 @@ import SettingsMembers from "./components/SettingsMembers";
 import SettingsModal from "./components/SettingsModal";
 import GlobalDashboard from "./pages/GlobalDashboard";
 import ObservabilityDashboard from "./pages/ObservabilityDashboard";
+import InfrastructureDashboard from "./pages/InfrastructureDashboard";
 import { useAuth } from "./contexts/AuthContext";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -776,6 +777,7 @@ export default function Dashboard() {
     const [viewState, setViewState] = useState<ViewState>({ type: 'GLOBAL' });
     const prevViewStateRef = useRef<ViewState>({ type: 'GLOBAL' });
     const [obsTab, setObsTab] = useState('overview');
+    const [infraTab, setInfraTab] = useState('nodes');
     const [viewMode, setViewMode] = useState<'GRID' | 'GRAPH'>('GRID');
     const [showServiceWizard, setShowServiceWizard] = useState(false);
     const [showProjectModal, setShowProjectModal] = useState(false);
@@ -785,7 +787,6 @@ export default function Dashboard() {
     const [showServiceCatalog, setShowServiceCatalog] = useState(false); // Service Catalog State
     const [initialServiceType, setInitialServiceType] = useState<"backend" | "frontend" | "database" | "worker">("backend");
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(true);
     const [isTeamsOpen, setIsTeamsOpen] = useState(true);
 
     // Data
@@ -1108,42 +1109,32 @@ export default function Dashboard() {
                             <SidebarItem icon={Shield} label="Audit Trail" active={obsTab === 'audit'} collapsed={!isSidebarOpen} onClick={() => setObsTab('audit')} />
                             <SidebarItem icon={Lock} label="Network Policies" active={obsTab === 'network'} collapsed={!isSidebarOpen} onClick={() => setObsTab('network')} />
                         </div>
+                    ) : viewState.type === ('INFRA' as any) ? (
+                        <div className="space-y-0.5">
+                            <button
+                                onClick={() => setViewState(prevViewStateRef.current)}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-[#888] hover:text-[#E3E3E3] hover:bg-[#2C2C2C]/30 mb-4"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                                <span className="font-medium">Infrastructure</span>
+                            </button>
+                            
+                            <SidebarItem icon={Server} label="Compute Nodes" active={infraTab === 'nodes'} collapsed={!isSidebarOpen} onClick={() => setInfraTab('nodes')} />
+                            <SidebarItem icon={Database} label="Storage Volumes" active={infraTab === 'storage'} collapsed={!isSidebarOpen} onClick={() => setInfraTab('storage')} />
+                            <SidebarItem icon={Globe} label="Network Assets" active={infraTab === 'network'} collapsed={!isSidebarOpen} onClick={() => setInfraTab('network')} />
+                            <SidebarItem icon={Layers} label="Topology Map" active={infraTab === 'topology'} collapsed={!isSidebarOpen} onClick={() => setInfraTab('topology')} />
+                        </div>
                     ) : (
                         <>
                             {/* Navigation */}
                             <div className="space-y-0.5">
                                 <SidebarItem icon={Building2} label="Platform Overview" active={viewState.type === 'GLOBAL'} collapsed={!isSidebarOpen} onClick={() => { setCurrentTeam(null); setViewState({ type: 'GLOBAL' }); }} />
                                 <SidebarItem icon={LineChart} label="Observability" active={viewState.type === 'OBSERVABILITY'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setCurrentTeam(null); setViewState({ type: 'OBSERVABILITY' }); }} />
+                                <SidebarItem icon={Server} label="Infrastructure" active={viewState.type === 'INFRA' as any} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setViewState({ type: 'INFRA' as any }); }} />
                                 <SidebarItem icon={Layers} label="Projects" active={viewState.type === 'ROOT' || viewState.type === 'PROJECT' || viewState.type === 'SERVICE'} collapsed={!isSidebarOpen} onClick={() => setViewState({ type: 'ROOT' })} />
-                                <SidebarItem icon={Inbox} label="Notifications" collapsed={!isSidebarOpen} />
                                 <SidebarItem icon={Activity} label="Activity" collapsed={!isSidebarOpen} />
                                 <SidebarItem icon={Bell} label="Alerts" collapsed={!isSidebarOpen} />
                             </div>
-
-                            {/* Project/Environment Scope */}
-                            {isSidebarOpen && <div className="pt-2">
-                                <div
-                                    className="px-3 mb-2 flex items-center justify-between group cursor-pointer"
-                                    onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}
-                                >
-                                    <span className="text-[10px] font-semibold text-[#666] uppercase tracking-wider group-hover:text-[#888] transition-colors">Workspace</span>
-                                    <ChevronDown className={`w-3 h-3 text-[#555] transition-transform ${isWorkspaceOpen ? 'rotate-180' : ''}`} />
-                                </div>
-                                <AnimatePresence initial={false}>
-                                    {isWorkspaceOpen && (
-                                        <motion.div
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: 'auto', opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            className="space-y-0.5 overflow-hidden"
-                                        >
-                                            <SidebarItem icon={Box} label="Active Environments" collapsed={false} />
-                                            <SidebarItem icon={Server} label="Compute Nodes" collapsed={false} />
-                                            <SidebarItem icon={Database} label="Storage Volumes" collapsed={false} />
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>}
 
                             {/* Teams UI using sidebar logic */}
                             {isSidebarOpen && <div className="pt-2">
@@ -1298,6 +1289,9 @@ export default function Dashboard() {
                             )}
                             {viewState.type === 'OBSERVABILITY' && (
                                 <ObservabilityDashboard org={currentOrg} activeTab={obsTab} />
+                            )}
+                            {viewState.type === ('INFRA' as any) && (
+                                <InfrastructureDashboard org={currentOrg} activeTab={infraTab} />
                             )}
                             {viewState.type === 'ROOT' && viewMode === 'GRID' && (
                                 <ProjectsGrid projects={filteredProjects} onSelect={handleProjectSelect} />

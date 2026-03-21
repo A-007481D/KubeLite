@@ -7,7 +7,9 @@ import com.ork8stra.projectmanagement.Project;
 import com.ork8stra.projectmanagement.ProjectService;
 
 import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1.NetworkPolicy;
+import io.fabric8.kubernetes.api.model.storage.StorageClass;
 import io.fabric8.kubernetes.api.model.metrics.v1beta1.NodeMetrics;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
@@ -238,6 +240,124 @@ public class ObservabilityController {
                         .createdAt(p.getMetadata().getCreationTimestamp())
                         .build()
                 ).collect(Collectors.toList());
+
+        return ResponseEntity.ok(result);
+    }
+
+    // ========== INFRASTRUCTURE: STORAGE ==========
+
+    @Data @Builder
+    public static class StorageInfo {
+        private String name;
+        private String namespace;
+        private String status;
+        private String capacity;
+        private String storageClass;
+        private String accessModes;
+        private String createdAt;
+    }
+
+    @GetMapping("/infra/storage")
+    public ResponseEntity<Map<String, Object>> getStorageInfo() {
+        List<PersistentVolumeClaim> pvcs = kubernetesClient.persistentVolumeClaims().inAnyNamespace().list().getItems();
+        List<StorageClass> storageClasses = kubernetesClient.storage().v1().storageClasses().list().getItems();
+
+        List<StorageInfo> pvcList = pvcs.stream()
+                .filter(p -> p.getMetadata().getNamespace().startsWith("project"))
+                .map(p -> StorageInfo.builder()
+                        .name(p.getMetadata().getName())
+                        .namespace(p.getMetadata().getNamespace())
+                        .status(p.getStatus().getPhase())
+                        .capacity(p.getSpec().getResources().getRequests().getOrDefault("storage", new Quantity("0")).getAmount())
+                        .storageClass(p.getSpec().getStorageClassName())
+                        .accessModes(p.getSpec().getAccessModes().toString())
+                        .createdAt(p.getMetadata().getCreationTimestamp())
+                        .build())
+                .collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("pvcs", pvcList);
+        result.put("storageClasses", storageClasses.stream().map(sc -> sc.getMetadata().getName()).collect(Collectors.toList()));
+        return ResponseEntity.ok(result);
+    }
+
+    // ========== INFRASTRUCTURE: NETWORK ==========
+
+    @Data @Builder
+    public static class NetworkAsset {
+        private String name;
+        private String namespace;
+        private String type; // Service or Ingress
+        private String spec; // e.g. Port or Host
+        private String status;
+        private String createdAt;
+    }
+
+    @GetMapping("/infra/network")
+    public ResponseEntity<List<NetworkAsset>> getNetworkAssets() {
+        List<NetworkAsset> assets = new ArrayList<>();
+
+        // Services
+        List<Service> services = kubernetesClient.services().inAnyNamespace().list().getItems();
+        services.stream()
+                .filter(s -> s.getMetadata().getNamespace().startsWith("project"))
+                .forEach(s -> assets.add(NetworkAsset.builder()
+                        .name(s.getMetadata().getName())
+                        .namespace(s.getMetadata().getNamespace())
+                        .type("Service")
+                        .spec(s.getSpec().getType() + " / " + (s.getSpec().getPorts() != null && !s.getSpec().getPorts().isEmpty() ? s.getSpec().getPorts().get(0).getPort() : "N/A"))
+                        .status("Active")
+                        .createdAt(s.getMetadata().getCreationTimestamp())
+                        .build()));
+
+        // Ingresses
+        List<Ingress> ingresses = kubernetesClient.network().v1().ingresses().inAnyNamespace().list().getItems();
+        ingresses.stream()
+                .filter(i -> i.getMetadata().getNamespace().startsWith("project"))
+                .forEach(i -> assets.add(NetworkAsset.builder()
+                        .name(i.getMetadata().getName())
+                        .namespace(i.getMetadata().getNamespace())
+                        .type("Ingress")
+                        .spec(i.getSpec().getRules() != null && !i.getSpec().getRules().isEmpty() ? i.getSpec().getRules().get(0).getHost() : "N/A")
+                        .status("Live")
+                        .createdAt(i.getMetadata().getCreationTimestamp())
+                        .build()));
+
+        return ResponseEntity.ok(assets);
+    }
+
+    // ========== INFRASTRUCTURE: TOPOLOGY ==========
+
+    @Data @Builder
+    public static class TopologyEntry {
+        private String projectName;
+        private String namespace;
+        private int appCount;
+        private int podCount;
+        private String status;
+    }
+
+    @GetMapping("/infra/topology")
+    public ResponseEntity<List<TopologyEntry>> getTopology() {
+        List<Project> projects = projectService.getAllProjects();
+        List<TopologyEntry> result = new ArrayList<>();
+
+        for (Project p : projects) {
+            String ns = p.getK8sNamespace();
+            int apps = applicationService.getApplicationsByProject(p.getId()).size();
+            int pods = 0;
+            try {
+                pods = kubernetesClient.pods().inNamespace(ns).list().getItems().size();
+            } catch (Exception e) {}
+
+            result.add(TopologyEntry.builder()
+                    .projectName(p.getName())
+                    .namespace(ns)
+                    .appCount(apps)
+                    .podCount(pods)
+                    .status("Provisioned")
+                    .build());
+        }
 
         return ResponseEntity.ok(result);
     }
