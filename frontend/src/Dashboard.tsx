@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { Project, Service, Deployment, ViewState, Team, Organization } from "./types/index";
 import {
     Search, Plus, Bell, ChevronDown, ChevronRight, ChevronLeft, Globe,
-    Inbox, Layers, LineChart,
+    Layers, LineChart,
     Box, Filter, List as ListIcon,
     Terminal, Activity, ArrowUpRight, Server,
     GitBranch, RefreshCw, Play, Square, RotateCcw,
+    Trash2, ExternalLink, MoreHorizontal,
+    Zap, Shield,
     Settings, Building2, Database, Layout as LayoutIcon, Cpu, Lock,
-    FileText, BarChart3, Container, Gauge, Shield
+    FileText, BarChart3, Container, Gauge
 } from "lucide-react";
 
 import ServiceCatalogModal from "./components/ServiceCatalogModal";
@@ -23,6 +25,8 @@ import SettingsModal from "./components/SettingsModal";
 import GlobalDashboard from "./pages/GlobalDashboard";
 import ObservabilityDashboard from "./pages/ObservabilityDashboard";
 import InfrastructureDashboard from "./pages/InfrastructureDashboard";
+import DeliveryDashboard from "./pages/DeliveryDashboard";
+import SecurityDashboard from "./pages/SecurityDashboard";
 import { useAuth } from "./contexts/AuthContext";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -788,6 +792,7 @@ export default function Dashboard() {
     const [initialServiceType, setInitialServiceType] = useState<"backend" | "frontend" | "database" | "worker">("backend");
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isTeamsOpen, setIsTeamsOpen] = useState(true);
+    const [isOpsOpen, setIsOpsOpen] = useState(true);
 
     // Data
     const [orgs, setOrgs] = useState<Organization[]>([]);
@@ -1130,11 +1135,38 @@ export default function Dashboard() {
                             <div className="space-y-0.5">
                                 <SidebarItem icon={Building2} label="Platform Overview" active={viewState.type === 'GLOBAL'} collapsed={!isSidebarOpen} onClick={() => { setCurrentTeam(null); setViewState({ type: 'GLOBAL' }); }} />
                                 <SidebarItem icon={LineChart} label="Observability" active={viewState.type === 'OBSERVABILITY'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setCurrentTeam(null); setViewState({ type: 'OBSERVABILITY' }); }} />
-                                <SidebarItem icon={Server} label="Infrastructure" active={viewState.type === 'INFRA' as any} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setViewState({ type: 'INFRA' as any }); }} />
                                 <SidebarItem icon={Layers} label="Projects" active={viewState.type === 'ROOT' || viewState.type === 'PROJECT' || viewState.type === 'SERVICE'} collapsed={!isSidebarOpen} onClick={() => setViewState({ type: 'ROOT' })} />
-                                <SidebarItem icon={Activity} label="Activity" collapsed={!isSidebarOpen} />
-                                <SidebarItem icon={Bell} label="Alerts" collapsed={!isSidebarOpen} />
+                                <SidebarItem icon={Bell} label="Notifications" collapsed={!isSidebarOpen} onClick={() => {}} />
                             </div>
+
+                            {/* Operations Accordion */}
+                            {isSidebarOpen && (
+                                <div className="mt-8 pt-4 border-t border-[#242424]">
+                                    <div 
+                                        className="px-3 mb-2 flex items-center justify-between group cursor-pointer"
+                                        onClick={() => setIsOpsOpen(!isOpsOpen)}
+                                    >
+                                        <span className="text-[10px] font-semibold text-[#666] uppercase tracking-wider group-hover:text-[#888] transition-colors flex items-center gap-2">
+                                            <Activity className="w-3 h-3" /> Operations
+                                        </span>
+                                        <ChevronDown className={`w-3 h-3 text-[#444] transition-transform ${isOpsOpen ? '' : '-rotate-90'}`} />
+                                    </div>
+                                    <AnimatePresence initial={false}>
+                                        {isOpsOpen && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="space-y-0.5 overflow-hidden"
+                                            >
+                                                <SidebarItem icon={Server} label="Infrastructure" active={viewState.type === 'INFRA'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setViewState({ type: 'INFRA' }); }} />
+                                                <SidebarItem icon={Zap} label="Deployments" active={viewState.type === 'DELIVERY'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setViewState({ type: 'DELIVERY' }); }} />
+                                                <SidebarItem icon={Shield} label="Security" active={viewState.type === 'SECURITY'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setViewState({ type: 'SECURITY' }); }} />
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            )}
 
                             {/* Teams UI using sidebar logic */}
                             {isSidebarOpen && <div className="pt-2">
@@ -1290,8 +1322,14 @@ export default function Dashboard() {
                             {viewState.type === 'OBSERVABILITY' && (
                                 <ObservabilityDashboard org={currentOrg} activeTab={obsTab} />
                             )}
-                            {viewState.type === ('INFRA' as any) && (
+                            {viewState.type === 'INFRA' && (
                                 <InfrastructureDashboard org={currentOrg} activeTab={infraTab} />
+                            )}
+                            {viewState.type === 'DELIVERY' && (
+                                <DeliveryDashboard _org={currentOrg} _activeTab="history" />
+                            )}
+                            {viewState.type === 'SECURITY' && (
+                                <SecurityDashboard _org={currentOrg} _activeTab="summary" />
                             )}
                             {viewState.type === 'ROOT' && viewMode === 'GRID' && (
                                 <ProjectsGrid projects={filteredProjects} onSelect={handleProjectSelect} />
