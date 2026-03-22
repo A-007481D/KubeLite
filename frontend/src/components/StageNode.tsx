@@ -2,7 +2,7 @@ import { memo, useState, useEffect, useRef } from 'react';
 import { Handle, Position } from 'reactflow';
 import { 
   CheckCircle2, XCircle, Clock, Loader2, 
-  Hammer, FlaskConical, Rocket, 
+  Terminal, Shield, Send, 
   Package, Activity
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -11,56 +11,56 @@ const getStageTheme = (name: string) => {
   const n = name.toUpperCase();
   if (n.includes('SOURCE') || n.includes('BUILD') || n.includes('COMPILE')) {
     return {
-      icon: Hammer,
+      icon: Terminal,
       color: '#F59E0B', 
-      accent: 'text-amber-400',
+      accent: 'text-amber-400/80',
       bg: 'bg-amber-500/5',
-      fill: 'rgba(245, 158, 11, 0.15)',
-      border: 'border-amber-500/30',
-      glow: 'shadow-[0_0_15px_rgba(245,158,11,0.1)]'
+      fill: 'rgba(245, 158, 11, 0.12)',
+      border: 'border-amber-500/20',
+      glow: 'shadow-[0_0_10px_rgba(245,158,11,0.05)]'
     };
   }
   if (n.includes('QUALITY') || n.includes('TEST') || n.includes('LINT')) {
     return {
-      icon: FlaskConical,
+      icon: Shield,
       color: '#3B82F6', 
-      accent: 'text-blue-400',
+      accent: 'text-blue-400/80',
       bg: 'bg-blue-500/5',
-      fill: 'rgba(59, 130, 246, 0.15)',
-      border: 'border-blue-500/30',
-      glow: 'shadow-[0_0_15px_rgba(59,130,246,0.1)]'
+      fill: 'rgba(59, 130, 246, 0.12)',
+      border: 'border-blue-500/20',
+      glow: 'shadow-[0_0_10px_rgba(59,130,246,0.05)]'
     };
   }
   if (n.includes('PUB') || n.includes('PUSH') || n.includes('IMAGE') || n.includes('PACKAGE')) {
     return {
       icon: Package,
       color: '#A855F7', 
-      accent: 'text-purple-400',
+      accent: 'text-purple-400/80',
       bg: 'bg-purple-500/5',
-      fill: 'rgba(168, 85, 247, 0.15)',
-      border: 'border-purple-500/30',
-      glow: 'shadow-[0_0_15px_rgba(168,85,247,0.1)]'
+      fill: 'rgba(168, 85, 247, 0.12)',
+      border: 'border-purple-500/20',
+      glow: 'shadow-[0_0_10px_rgba(168,85,247,0.05)]'
     };
   }
   if (n.includes('ROLLOUT') || n.includes('DEPLOY') || n.includes('PROD')) {
     return {
-      icon: Rocket,
+      icon: Send,
       color: '#10B981', 
-      accent: 'text-emerald-400',
+      accent: 'text-emerald-400/80',
       bg: 'bg-emerald-500/5',
-      fill: 'rgba(16, 185, 129, 0.15)',
-      border: 'border-emerald-500/30',
-      glow: 'shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+      fill: 'rgba(16, 185, 129, 0.12)',
+      border: 'border-emerald-500/20',
+      glow: 'shadow-[0_0_10px_rgba(16,185,129,0.05)]'
     };
   }
   return {
     icon: Activity,
     color: '#94A3B8', 
-    accent: 'text-slate-400',
+    accent: 'text-slate-400/80',
     bg: 'bg-slate-500/5',
-    fill: 'rgba(148, 163, 184, 0.15)',
-    border: 'border-slate-500/30',
-    glow: 'shadow-[0_0_15px_rgba(148,163,184,0.1)]'
+    fill: 'rgba(148, 163, 184, 0.12)',
+    border: 'border-slate-500/20',
+    glow: 'shadow-[0_0_10px_rgba(148,163,184,0.05)]'
   };
 };
 
@@ -103,33 +103,33 @@ const StageNode = ({ data }: any) => {
   const getStatusIcon = () => {
     switch (status) {
       case 'SUCCESS':
-        return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
+        return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />;
       case 'FAILED':
-        return <XCircle className="w-4 h-4 text-red-400" />;
+        return <XCircle className="w-3.5 h-3.5 text-red-400" />;
       case 'RUNNING':
         return (
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           >
-            <Loader2 className="w-4 h-4 text-white" />
+            <Loader2 className="w-3.5 h-3.5 text-white" />
           </motion.div>
         );
       default:
-        return <Clock className="w-4 h-4 text-slate-500" />;
+        return <Clock className="w-3.5 h-3.5 text-slate-500" />;
     }
   };
 
-  const statusBorderClass = status === 'RUNNING' ? 'border-white/40' : (status === 'SUCCESS' ? 'border-emerald-500/50' : theme.border);
+  const statusBorderClass = status === 'RUNNING' ? 'border-white/30' : (status === 'SUCCESS' ? 'border-emerald-500/30' : theme.border);
   
   const backgroundStyle = {
     '--progress': `${progress}%`,
-    '--fill-color': status === 'SUCCESS' ? 'rgba(16, 185, 129, 0.1)' : theme.fill,
+    '--fill-color': status === 'SUCCESS' ? 'rgba(16, 185, 129, 0.08)' : theme.fill,
   } as React.CSSProperties;
 
   return (
     <div 
-      className={`px-5 py-4 rounded-2xl border backdrop-blur-xl min-w-[220px] transition-all duration-500 group relative overflow-hidden ${theme.bg} ${statusBorderClass} ${theme.glow}`}
+      className={`px-4 py-3 rounded-xl border backdrop-blur-xl min-w-[190px] transition-all duration-500 group relative overflow-hidden ${theme.bg} ${statusBorderClass} ${theme.glow}`}
       style={backgroundStyle}
     >
       {/* Liquid Fill Element */}
@@ -143,36 +143,26 @@ const StageNode = ({ data }: any) => {
         {status === 'RUNNING' && <div className="liquid-wave" />}
       </motion.div>
 
-      {/* Leading Edge Glow */}
-      {status === 'RUNNING' && (
-        <motion.div 
-           animate={{ left: `${progress}%` }}
-           transition={{ type: "spring", stiffness: 50, damping: 20 }}
-           className="absolute top-0 bottom-0 w-[4px] z-10 blur-[4px]"
-           style={{ backgroundColor: theme.color, opacity: 0.5 }}
-        />
-      )}
-
-      {!isFirst && <Handle type="target" position={Position.Left} className="!bg-slate-700 !w-2 !h-2 !border-none !z-20" />}
+      {!isFirst && <Handle type="target" position={Position.Left} className="!bg-slate-700 !w-1.5 !h-1.5 !border-none !z-20" />}
       
-      <div className="flex flex-col gap-3 relative z-10">
+      <div className="flex flex-col gap-2 relative z-10">
         <div className="flex items-center justify-between">
-          <div className={`p-2 rounded-lg bg-black/40 border border-white/5 ${theme.accent}`}>
-             <StageIcon className="w-5 h-5" />
+          <div className={`flex items-center gap-2 ${theme.accent}`}>
+             <StageIcon className="w-4 h-4" />
+             <span className="text-xs font-semibold text-white/90 truncate max-w-[120px]">{name}</span>
           </div>
-          <div className="bg-black/40 px-2 py-1 rounded-md border border-white/5">
+          <div className="bg-black/30 p-1 rounded border border-white/5 leading-none">
              {getStatusIcon()}
           </div>
         </div>
 
-        <div className="flex flex-col min-w-0">
-          <span className="text-xs font-black text-white truncate uppercase tracking-[0.15em] mb-1">{name}</span>
+        <div className="flex flex-col gap-0.5">
           <div className="flex items-center justify-between">
-            <span className={`text-[10px] uppercase font-bold tracking-widest ${status === 'RUNNING' ? 'text-white' : 'text-slate-500'}`}>
+            <span className={`text-[9px] font-bold tracking-wider ${status === 'RUNNING' ? 'text-white' : 'text-slate-500/80'}`}>
               {status}
             </span>
             {(duration || progress > 0) && (
-              <span className="text-[10px] text-slate-500 font-mono italic">
+              <span className="text-[9px] text-slate-500/80 font-mono">
                 {status === 'RUNNING' ? `${Math.round(progress)}%` : duration}
               </span>
             )}
@@ -181,7 +171,7 @@ const StageNode = ({ data }: any) => {
       </div>
 
       {status === 'RUNNING' && (
-        <div className="absolute -bottom-[1px] left-0 right-0 h-[2px] bg-white/10 overflow-hidden">
+        <div className="absolute -bottom-[1px] left-0 right-0 h-[1.5px] bg-white/5 overflow-hidden">
           <motion.div 
             className="h-full"
             style={{ backgroundColor: theme.color, width: `${progress}%` }}
@@ -189,7 +179,7 @@ const StageNode = ({ data }: any) => {
         </div>
       )}
 
-      {!isLast && <Handle type="source" position={Position.Right} className="!bg-slate-700 !w-2 !h-2 !border-none !z-20" />}
+      {!isLast && <Handle type="source" position={Position.Right} className="!bg-slate-700 !w-1.5 !h-1.5 !border-none !z-20" />}
     </div>
   );
 };

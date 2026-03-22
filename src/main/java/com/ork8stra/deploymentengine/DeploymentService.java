@@ -88,6 +88,13 @@ public class DeploymentService {
         public void initializeStages(Deployment deployment) {
                 if (deployment.getStages() != null && !deployment.getStages().isEmpty()) return;
                 
+                // Final safety: ensures we don't duplicate if partially initialized
+                List<String> existingNames = deployment.getStages().stream()
+                                .map(DeploymentStage::getName)
+                                .toList();
+
+                if (existingNames.contains("Source & Compilation")) return;
+
                 // Stage 1: Build 
                 DeploymentStage buildStage = DeploymentStage.builder()
                                 .name("Source & Compilation")

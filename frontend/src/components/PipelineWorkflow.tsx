@@ -65,14 +65,16 @@ const PipelineWorkflow = ({ stages, onNodeClick }: PipelineWorkflowProps) => {
           id: `e-${index-1}-${index}`,
           source: prevStage.id?.toString() || prevStage.name,
           target: stage.id?.toString() || stage.name,
-          type: ConnectionLineType.SmoothStep,
+          type: ConnectionLineType.Bezier,
           animated: isActive,
           style: { 
             stroke: isActive ? '#F59E0B' : (stage.status === 'SUCCESS' ? '#10B981' : '#334155'),
-            strokeWidth: 2,
+            strokeWidth: 1.5,
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
+            width: 15,
+            height: 15,
             color: isActive ? '#F59E0B' : (stage.status === 'SUCCESS' ? '#10B981' : '#334155'),
           },
         });
@@ -104,16 +106,22 @@ const PipelineWorkflow = ({ stages, onNodeClick }: PipelineWorkflowProps) => {
         nodeTypes={nodeTypes}
         fitView
         selectNodesOnDrag={false}
-        nodesDraggable={false}
+        nodesDraggable={true}
         nodesConnectable={false}
         elementsSelectable={true}
         zoomOnScroll={false}
         panOnDrag={true}
       >
-        <Background color="#334155" gap={20} size={1} />
-        <Controls
-          className="!bg-[#15171C] !border-white/10 !fill-white"
+        <Background color="#1E293B" gap={20} size={1} />
+        <Controls 
+          className="!bg-[#15171C] !border-white/20 !fill-white !shadow-2xl" 
           showInteractive={false}
+          style={{ 
+            backgroundColor: '#15171C', 
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '8px',
+            overflow: 'hidden'
+          }}
         />
       </ReactFlow>
 

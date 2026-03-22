@@ -27,6 +27,7 @@ public class DeploymentController {
     }
 
     @GetMapping("/{deploymentId}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<DeploymentResponse> getDeployment(
             @PathVariable UUID appId,
             @PathVariable UUID deploymentId) {
@@ -34,9 +35,10 @@ public class DeploymentController {
                 .orElseThrow(() -> new IllegalArgumentException("Deployment not found: " + deploymentId));
         
         // Auto-initialize stages for older deployments that don't have them
-        if (deployment.getStages() == null || deployment.getStages().isEmpty()) {
+        boolean needsInit = deployment.getStages() == null || deployment.getStages().isEmpty();
+        if (needsInit) {
             deploymentService.initializeStages(deployment);
-            deployment = deploymentRepository.save(deployment);
+            deploymentRepository.saveAndFlush(deployment);
         }
 
         return ResponseEntity.ok(DeploymentResponse.from(deployment));
