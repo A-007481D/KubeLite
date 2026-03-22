@@ -37,26 +37,28 @@ public class DeploymentLogService {
                 }
 
                 for (DeploymentStage stage : stagesToStream) {
-                    emitter.send(SseEmitter.event().name("log").data("\n--- Stage: " + stage.getName() + " ---"));
+                    emitter.send(SseEmitter.event().data("\n--- Stage: " + stage.getName() + " ---"));
                     
-                    // Mocking technical output for Build/Test stages for the demo
-                    if (stage.getName().equals("Build") || stage.getName().equals("Test")) {
+                    // Mocking technical output for specific stages
+                    if (stage.getName().equals("Source Compilation")) {
                         for (DeploymentStep step : stage.getSteps()) {
-                            emitter.send(SseEmitter.event().name("log").data("[" + stage.getName() + "] Executing " + step.getName() + "..."));
+                            emitter.send(SseEmitter.event().data("[" + stage.getName() + "] Executing " + step.getName() + "..."));
                             Thread.sleep(100);
-                            emitter.send(SseEmitter.event().name("log").data("[" + stage.getName() + "] " + step.getName() + " completed successfully."));
                         }
-                    } else if (stage.getName().equals("Deploy")) {
-                        // Stream actual K8s logs if status is healthy? 
-                        // For simplicity in this visualization, we'll keep the technical flow clear:
-                        emitter.send(SseEmitter.event().name("log").data("[Deploy] Initializing K8s resources..."));
-                        emitter.send(SseEmitter.event().name("log").data("[Deploy] Namespace: " + deployment.getApplicationId()));
-                        emitter.send(SseEmitter.event().name("log").data("[Deploy] Applying Deployment resource..."));
-                        emitter.send(SseEmitter.event().name("log").data("[Deploy] Application is now LIVE at: " + deployment.getIngressUrl()));
+                        emitter.send(SseEmitter.event().data("[Source Compilation] Maven build successful. Image pushed to registry."));
+                    } else if (stage.getName().equals("Security & Quality")) {
+                        emitter.send(SseEmitter.event().data("[Security & Quality] Running static analysis..."));
+                        Thread.sleep(150);
+                        emitter.send(SseEmitter.event().data("[Security & Quality] SonarQube results: 0 Critical, 0 Major vulnerabilities."));
+                    } else if (stage.getName().equals("Kubernetes Rollout")) {
+                        emitter.send(SseEmitter.event().data("[Deploy] Initializing K8s resources..."));
+                        emitter.send(SseEmitter.event().data("[Deploy] Namespace: " + deployment.getApplicationId()));
+                        emitter.send(SseEmitter.event().data("[Deploy] Applying Deployment resource..."));
+                        emitter.send(SseEmitter.event().data("[Deploy] Application is now LIVE at: " + deployment.getIngressUrl()));
                     }
                 }
 
-                emitter.send(SseEmitter.event().name("complete").data("Log stream completed."));
+                emitter.send(SseEmitter.event().data("\nLog stream finished."));
                 emitter.complete();
 
             } catch (Exception e) {

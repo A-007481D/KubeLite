@@ -46,7 +46,6 @@ public class MetricsService {
     }
 
     public AppMetrics getApplicationMetrics(String namespace, String appName) {
-        String labelSelector = "app=" + appName;
         List<Pod> pods = kubernetesClient.pods().inNamespace(namespace).withLabel("app", appName).list().getItems();
 
         int running = 0;
@@ -84,12 +83,12 @@ public class MetricsService {
 
             totalCpu = metrics.stream()
                     .flatMap(pm -> pm.getContainers().stream())
-                    .mapToDouble(c -> parseCpu(c.getUsage().get("cpu").getAmount()))
+                    .mapToDouble(c -> parseCpu(c.getUsage().get("cpu")))
                     .sum();
 
             totalMem = metrics.stream()
                     .flatMap(pm -> pm.getContainers().stream())
-                    .mapToLong(c -> parseMemory(c.getUsage().get("memory").getAmount()))
+                    .mapToLong(c -> parseMemory(c.getUsage().get("memory")))
                     .sum();
 
         } catch (Exception e) {
@@ -206,39 +205,51 @@ public class MetricsService {
     }
 
     private String toKubernetesName(String rawName) {
-        String normalized = rawName.toLowerCase().replaceAll("[^a-z0-0]", "-")
+        String normalized = rawName.toLowerCase().replaceAll("[^a-z0-9]", "-")
                 .replaceAll("-+", "-")
                 .replaceAll("^-|-$", "");
         return normalized.isBlank() ? "app" : normalized;
     }
 
-    private double parseCpu(String cpu) {
-        if (cpu == null)
+    private double parseCpu(io.fabric8.kubernetes.api.model.Quantity q) {
+        if (q == null) return 0;
+        String amount = q.getAmount();
+        String format = q.getFormat();
+        try {
+            double val = Double.parseDouble(amount);
+            if (format != null && format.equals("n")) return val / 1_000_000_000.0;
+            if (format != null && format.equals("u")) return val / 1_000_000.0;
+            if (format != null && format.equals("m")) return val / 1000.0;
+            // Fallback for string-encoded quantities
+            if (amount.endsWith("n")) return Double.parseDouble(amount.replace("n", "")) / 1_000_000_000.0;
+            if (amount.endsWith("u")) return Double.parseDouble(amount.replace("u", "")) / 1_000_000.0;
+            if (amount.endsWith("m")) return Double.parseDouble(amount.replace("m", "")) / 1000.0;
+            return val;
+        } catch (Exception e) {
             return 0;
-        if (cpu.endsWith("n"))
-            return Double.parseDouble(cpu.substring(0, cpu.length() - 1)) / 1_000_000_000.0;
-        if (cpu.endsWith("u"))
-            return Double.parseDouble(cpu.substring(0, cpu.length() - 1)) / 1_000_000.0;
-        if (cpu.endsWith("m"))
-            return Double.parseDouble(cpu.substring(0, cpu.length() - 1)) / 1000.0;
-        return Double.parseDouble(cpu);
+        }
     }
 
-    private long parseMemory(String mem) {
-        if (mem == null)
+    private long parseMemory(io.fabric8.kubernetes.api.model.Quantity q) {
+        if (q == null) return 0;
+        String amount = q.getAmount();
+        String format = q.getFormat();
+        try {
+            double val = Double.parseDouble(amount);
+            long factor = 1;
+            String unit = (format != null) ? format : "";
+            if (unit.isEmpty()) {
+                if (amount.endsWith("Ki")) { factor = 1024; val = Double.parseDouble(amount.replace("Ki", "")); }
+                else if (amount.endsWith("Mi")) { factor = 1024 * 1024; val = Double.parseDouble(amount.replace("Mi", "")); }
+                else if (amount.endsWith("Gi")) { factor = 1024 * 1024 * 1024; val = Double.parseDouble(amount.replace("Gi", "")); }
+            } else {
+                if (unit.equals("Ki")) factor = 1024;
+                else if (unit.equals("Mi")) factor = 1024 * 1024;
+                else if (unit.equals("Gi")) factor = 1024 * 1024 * 1024;
+            }
+            return (long) (val * factor);
+        } catch (Exception e) {
             return 0;
-        long multiplier = 1;
-        String value = mem;
-        if (mem.endsWith("Ki")) {
-            multiplier = 1024;
-            value = mem.substring(0, mem.length() - 2);
-        } else if (mem.endsWith("Mi")) {
-            multiplier = 1024 * 1024;
-            value = mem.substring(0, mem.length() - 2);
-        } else if (mem.endsWith("Gi")) {
-            multiplier = 1024 * 1024 * 1024;
-            value = mem.substring(0, mem.length() - 2);
         }
-        return (long) (Double.parseDouble(value) * multiplier);
     }
 }

@@ -60,8 +60,18 @@ export default function LogViewer({ deploymentId, appId, stageId, onClose, token
                     buffer = lines.pop() || ""; // Keep the last partial chunk
 
                     for (const line of lines) {
+                        // Support both raw data (default SSE) and explicitly prefixed data
+                        let data = "";
                         if (line.startsWith("data: ")) {
-                            const data = line.substring(6);
+                            data = line.substring(6);
+                        } else if (line.includes("data: ")) {
+                            // Handle cases where "event: ...\ndata: ..." is present
+                            data = line.split("data: ").pop() || "";
+                        } else {
+                            data = line;
+                        }
+
+                        if (data.trim()) {
                             setLogs((prev: string[]) => [...prev.slice(-999), data]); 
                         }
                     }

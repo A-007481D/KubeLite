@@ -70,35 +70,52 @@ const StageNode = ({ data }: any) => {
   const StageIcon = theme.icon;
   
   const [progress, setProgress] = useState(0);
+  const nodeRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<number | null>(null);
+  const [isActive, setIsActive] = useState(false);
+
+  // Calculate current progress based on startTime
+  const start = startTime ? new Date(startTime).getTime() : Date.now();
+  const initialProgress = Math.min(Math.max((Date.now() - start) / (estimatedDuration * 1000), 0), 1);
 
   useEffect(() => {
-    if (status === 'SUCCESS') {
-      setProgress(100);
-      return;
+    if (status === 'RUNNING') {
+      const delay = setTimeout(() => {
+        setIsActive(true);
+      }, 50); 
+      return () => clearTimeout(delay);
+    } else {
+      setIsActive(false);
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
+      // Immediate update for completed/pending states
+      const finalP = status === 'SUCCESS' ? 100 : (status === 'FAILED' ? (initialProgress * 100) : 0);
+      setProgress(finalP);
     }
-    if (status === 'FAILED') {
-      return;
-    }
-    if (status === 'RUNNING' && startTime) {
-      const startTimestamp = new Date(startTime).getTime();
-      const durationMs = estimatedDuration * 1000;
+  }, [status, initialProgress]);
 
-      const updateProgress = () => {
-        const now = Date.now();
-        const elapsed = now - startTimestamp;
-        const currentProgress = Math.min((elapsed / durationMs) * 100, 99.5);
-        setProgress(currentProgress);
-        requestRef.current = requestAnimationFrame(updateProgress);
-      };
+  useEffect(() => {
+    if (!isActive || !startTime) return;
 
-      requestRef.current = requestAnimationFrame(updateProgress);
-      return () => {
-        if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      };
-    }
-    setProgress(0);
-  }, [status, startTime, estimatedDuration]);
+    const animate = () => {
+      const now = Date.now();
+      const st = new Date(startTime).getTime();
+      const elapsed = now - st;
+      const newProgress = Math.min((elapsed / (estimatedDuration * 1000)) * 100, 100);
+
+      setProgress(newProgress);
+
+      if (newProgress < 100) {
+        requestRef.current = requestAnimationFrame(animate);
+      }
+    };
+    requestRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, [isActive, startTime, estimatedDuration]);
 
   const getStatusIcon = () => {
     switch (status) {
@@ -129,19 +146,21 @@ const StageNode = ({ data }: any) => {
 
   return (
     <div 
+      ref={nodeRef}
       className={`px-4 py-3 rounded-xl border backdrop-blur-xl min-w-[190px] transition-all duration-500 group relative overflow-hidden ${theme.bg} ${statusBorderClass} ${theme.glow}`}
       style={backgroundStyle}
     >
       {/* Liquid Fill Element */}
-      <motion.div 
-         initial={false}
-         animate={{ width: `${progress}%` }}
-         transition={{ type: "spring", stiffness: 50, damping: 20 }}
-         className="absolute top-0 left-0 bottom-0 z-0 overflow-hidden transition-colors duration-500"
-         style={{ backgroundColor: 'var(--fill-color)' }}
+      <div 
+         className="absolute top-0 left-0 bottom-0 z-0 overflow-hidden transition-all duration-300"
+         style={{ 
+            backgroundColor: 'var(--fill-color)', 
+            width: 'var(--progress)',
+            boxShadow: 'inset -20px 0 30px -15px rgba(255,255,255,0.05)'
+         }}
       >
         {status === 'RUNNING' && <div className="liquid-wave" />}
-      </motion.div>
+      </div>
 
       {!isFirst && <Handle type="target" position={Position.Left} className="!bg-slate-700 !w-1.5 !h-1.5 !border-none !z-20" />}
       
@@ -172,9 +191,9 @@ const StageNode = ({ data }: any) => {
 
       {status === 'RUNNING' && (
         <div className="absolute -bottom-[1px] left-0 right-0 h-[1.5px] bg-white/5 overflow-hidden">
-          <motion.div 
-            className="h-full"
-            style={{ backgroundColor: theme.color, width: `${progress}%` }}
+          <div 
+            className="h-full transition-all duration-300"
+            style={{ backgroundColor: theme.color, width: 'var(--progress)' }}
           />
         </div>
       )}

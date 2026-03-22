@@ -447,25 +447,39 @@ public class ObservabilityController {
     }
 
     private double parseCpuQuantity(Quantity q) {
+        if (q == null) return 0;
         String amount = q.getAmount();
         String format = q.getFormat();
         try {
             double val = Double.parseDouble(amount);
             if (format != null && format.equals("n")) return val / 1_000_000_000.0;
+            if (format != null && format.equals("u")) return val / 1_000_000.0;
             if (format != null && format.equals("m")) return val / 1000.0;
-            if (amount.endsWith("n")) return Double.parseDouble(amount.replace("n","")) / 1_000_000_000.0;
-            if (amount.endsWith("m")) return Double.parseDouble(amount.replace("m","")) / 1000.0;
+            if (amount.endsWith("n")) return Double.parseDouble(amount.replace("n", "")) / 1_000_000_000.0;
+            if (amount.endsWith("u")) return Double.parseDouble(amount.replace("u", "")) / 1_000_000.0;
+            if (amount.endsWith("m")) return Double.parseDouble(amount.replace("m", "")) / 1000.0;
             return val;
         } catch (Exception e) { return 0; }
     }
 
     private long parseMemQuantity(Quantity q) {
+        if (q == null) return 0;
         String amount = q.getAmount();
+        String format = q.getFormat();
         try {
-            if (amount.endsWith("Ki")) return (long)(Double.parseDouble(amount.replace("Ki","")) * 1024);
-            if (amount.endsWith("Mi")) return (long)(Double.parseDouble(amount.replace("Mi","")) * 1024 * 1024);
-            if (amount.endsWith("Gi")) return (long)(Double.parseDouble(amount.replace("Gi","")) * 1024 * 1024 * 1024);
-            return Long.parseLong(amount);
+            double val = Double.parseDouble(amount);
+            long factor = 1;
+            String unit = (format != null) ? format : "";
+            if (unit.isEmpty()) {
+                if (amount.endsWith("Ki")) { factor = 1024; val = Double.parseDouble(amount.replace("Ki", "")); }
+                else if (amount.endsWith("Mi")) { factor = 1024 * 1024; val = Double.parseDouble(amount.replace("Mi", "")); }
+                else if (amount.endsWith("Gi")) { factor = 1024 * 1024 * 1024; val = Double.parseDouble(amount.replace("Gi", "")); }
+            } else {
+                if (unit.equals("Ki")) factor = 1024;
+                else if (unit.equals("Mi")) factor = 1024 * 1024;
+                else if (unit.equals("Gi")) factor = 1024 * 1024 * 1024;
+            }
+            return (long) (val * factor);
         } catch (Exception e) { return 0; }
     }
 

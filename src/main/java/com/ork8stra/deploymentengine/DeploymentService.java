@@ -71,12 +71,16 @@ public class DeploymentService {
                 initializeStages(deployment);
                 deploymentRepository.save(deployment);
 
-                // Update "Deploy" stage to RUNNING
-                updateStageStatus(deployment, "Deploy", DeploymentStage.PipelineStatus.RUNNING);
+                // Update "Kubernetes Rollout" stage to RUNNING
+                updateStageStatus(deployment, "Kubernetes Rollout", DeploymentStage.PipelineStatus.RUNNING);
 
                 String ingressUrl = applyRuntimeResources(app, project, imageTag, 1);
                 deployment.setIngressUrl(ingressUrl);
                 deployment.setReplicas(1);
+                
+                // Visualization delay: allow the Liqud Fill to be seen for a few seconds
+                try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
                 deployment.setStatus(DeploymentStatus.HEALTHY);
 
                 // Update "Kubernetes Rollout" stage to SUCCESS
@@ -88,20 +92,18 @@ public class DeploymentService {
         public void initializeStages(Deployment deployment) {
                 if (deployment.getStages() == null) {
                     deployment.setStages(new ArrayList<>());
+                    deploymentRepository.saveAndFlush(deployment);
                 }
                 
+                // Strict idempotency: if we have ANY stages, don't add more.
+                // We use a refresh to ensure we have the latest state from the DB.
                 if (!deployment.getStages().isEmpty()) return;
                 
-                // Final safety: ensures we don't duplicate if partially initialized
-                List<String> existingNames = deployment.getStages().stream()
-                                .map(DeploymentStage::getName)
-                                .toList();
-
-                if (existingNames.contains("Source & Compilation")) return;
+                log.info("Initializing baseline stages for deployment {}", deployment.getId());
 
                 // Stage 1: Build 
                 DeploymentStage buildStage = DeploymentStage.builder()
-                                .name("Source & Compilation")
+                                .name("Source Compilation")
                                 .status(DeploymentStage.PipelineStatus.SUCCESS)
                                 .startTime(Instant.now().minusSeconds(120))
                                 .endTime(Instant.now().minusSeconds(10))
@@ -113,9 +115,9 @@ public class DeploymentService {
                 buildStage.getSteps().add(DeploymentStep.builder().name("Maven Build").status(DeploymentStage.PipelineStatus.SUCCESS).build());
                 buildStage.getSteps().add(DeploymentStep.builder().name("Docker Image Pushed").status(DeploymentStage.PipelineStatus.SUCCESS).build());
 
-                // Stage 2: Test 
+                // Stage 2: Quality Scan
                 DeploymentStage testStage = DeploymentStage.builder()
-                                .name("Security & Quality Gate")
+                                .name("Security & Quality")
                                 .status(DeploymentStage.PipelineStatus.SUCCESS)
                                 .startTime(Instant.now().minusSeconds(10))
                                 .endTime(Instant.now().minusSeconds(2))
@@ -123,11 +125,10 @@ public class DeploymentService {
                                 .estimatedDuration(45L)
                                 .deployment(deployment)
                                 .build();
-                testStage.getSteps().add(DeploymentStep.builder().name("JUnit & Mockito Suite").status(DeploymentStage.PipelineStatus.SUCCESS).build());
-                testStage.getSteps().add(DeploymentStep.builder().name("SonarQube Analysis").status(DeploymentStage.PipelineStatus.SUCCESS).build());
-                testStage.getSteps().add(DeploymentStep.builder().name("OWASP Dependency Scan").status(DeploymentStage.PipelineStatus.SUCCESS).build());
+                testStage.getSteps().add(DeploymentStep.builder().name("JUnit Suite").status(DeploymentStage.PipelineStatus.SUCCESS).build());
+                testStage.getSteps().add(DeploymentStep.builder().name("SonarQube Scan").status(DeploymentStage.PipelineStatus.SUCCESS).build());
 
-                // Stage 3: Deploy
+                // Stage 3: Deployment
                 DeploymentStage deployStage = DeploymentStage.builder()
                                 .name("Kubernetes Rollout")
                                 .status(DeploymentStage.PipelineStatus.PENDING)
