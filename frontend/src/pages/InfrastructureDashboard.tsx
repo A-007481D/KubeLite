@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
     Server, Database, Globe, Layers, 
-    Box, Cpu, Network, Layout,
-    Search, RefreshCw
+    Box, Cpu, Network, Layout
 } from "lucide-react";
 import { Card, CardHeader, CardContent } from "../components/ui/Card";
 
@@ -11,155 +10,130 @@ interface InfrastructureDashboardProps {
 }
 
 export default function InfrastructureDashboard({ activeTab }: InfrastructureDashboardProps) {
-    const [token] = useState(localStorage.getItem("token") || "");
-    const [isLoading, setIsLoading] = useState(false);
-    const [data, setData] = useState<any>(null);
-    const [searchQuery, setSearchQuery] = useState("");
+    return (
+        <div className="flex flex-col min-h-full w-full bg-[#0A0A0A] p-6 lg:p-8 overflow-y-auto custom-scrollbar">
+            {activeTab === 'nodes' && <NodesTab />}
+            {activeTab === 'storage' && <StorageTab />}
+            {activeTab === 'network' && <NetworkTab />}
+            {activeTab === 'topology' && <TopologyTab />}
+        </div>
+    );
+}
 
-    const fetchData = async () => {
-        if (!token) return;
-        setIsLoading(true);
+// ===== TAB 1: NODES =====
+function NodesTab() {
+    const [nodes, setNodes] = useState<any[] | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
+        const token = localStorage.getItem("token");
         try {
-            let endpoint = "";
-            switch (activeTab) {
-                case 'nodes': endpoint = "/api/v1/observability/nodes"; break;
-                case 'storage': endpoint = "/api/v1/observability/infra/storage"; break;
-                case 'network': endpoint = "/api/v1/observability/infra/network"; break;
-                case 'topology': endpoint = "/api/v1/observability/infra/topology"; break;
-                default: endpoint = "/api/v1/observability/nodes";
-            }
-
-            const res = await fetch(endpoint, {
+            const res = await fetch("/api/v1/observability/nodes", {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            if (!res.ok) throw new Error("Failed to fetch infra data");
-            const json = await res.json();
-            setData(json);
+            if (res.ok) setNodes(await res.json());
         } catch (e) {
-            console.error("Infra Fetch Error:", e);
+            console.error(e);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 30000);
         return () => clearInterval(interval);
-    }, [activeTab, token]);
+    }, [fetchData]);
 
-    return (
-        <div className="flex flex-col min-h-full w-full bg-[#0A0A0A] p-8 space-y-8 overflow-y-auto">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-                        {activeTab === 'nodes' && <Server className="w-8 h-8 text-emerald-400" />}
-                        {activeTab === 'storage' && <Database className="w-8 h-8 text-blue-400" />}
-                        {activeTab === 'network' && <Globe className="w-8 h-8 text-purple-400" />}
-                        {activeTab === 'topology' && <Layers className="w-8 h-8 text-orange-400" />}
-                        {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Registry
-                    </h1>
-                    <p className="text-[#666] mt-1">Real-time inventory and mapping of platform-wide resources.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Search className="w-4 h-4 text-[#444] absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                            type="text"
-                            placeholder="Filter resources..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-[#111] border border-[#222] rounded-md pl-9 pr-3 py-1.5 text-sm w-[240px] focus:outline-none focus:border-[#333] transition-all text-white"
-                        />
-                    </div>
-                    <button 
-                        onClick={fetchData}
-                        className="p-2 bg-[#111] border border-[#222] rounded-md text-[#666] hover:text-white hover:border-[#333] transition-all"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    </button>
-                </div>
-            </header>
-
-            {isLoading && !data ? (
-                <div className="flex-1 flex items-center justify-center py-20">
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="w-10 h-10 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-                        <span className="text-xs font-mono text-[#444] uppercase tracking-widest">Scanning Infrastructure...</span>
-                    </div>
-                </div>
-            ) : (
-                <div className="space-y-6">
-                    {activeTab === 'nodes' && <NodesView nodes={data} />}
-                    {activeTab === 'storage' && <StorageView data={data} />}
-                    {activeTab === 'network' && <NetworkView assets={data} />}
-                    {activeTab === 'topology' && <TopologyView entries={data} />}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function NodesView({ nodes }: { nodes: any[] }) {
+    if (isLoading && !nodes) return <LoadingState />;
     if (!nodes || nodes.length === 0) return <EmptyState label="No compute nodes discovered." icon={Server} />;
-    return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {nodes.map((node, i) => (
-                <Card key={i} className="bg-[#111]/50 border-[#222] hover:border-emerald-500/30 transition-all group overflow-hidden">
-                    <CardHeader className="p-5 border-b border-[#222]/50">
-                        <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-                                    <Server className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{node.name}</h3>
-                                    <p className="text-[10px] text-[#555] font-mono">{node.kubeletVersion}</p>
-                                </div>
-                            </div>
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${node.status === 'Ready' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                                {node.status}
-                            </span>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-5 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-[10px] text-[#555] uppercase font-bold tracking-widest">OS / ARCH</p>
-                                <p className="text-xs text-[#E3E3E3]">{node.osImage} / {node.architecture}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] text-[#555] uppercase font-bold tracking-widest">Address</p>
-                                <p className="text-xs text-[#E3E3E3]">{node.internalIP}</p>
-                            </div>
-                        </div>
-                        <div className="space-y-2 pt-2 border-t border-[#222]/50">
-                            <div className="flex justify-between text-[10px]">
-                                <span className="text-[#666]">SYSTEM INFO</span>
-                                <span className="text-[#E3E3E3] font-mono">{node.containerRuntimeVersion}</span>
-                            </div>
-                            <div className="p-2 bg-black/40 rounded border border-[#222] text-[10px] text-[#888] font-mono">
-                                Kernel: {node.kernelVersion}
-                            </div>
-                            <div className="flex justify-between text-[10px] items-center pt-2">
-                                <span className="text-[#666]">CAPACITY</span>
-                                <div className="flex items-center gap-3 text-[#E3E3E3] font-mono">
-                                    <div className="flex items-center gap-1"><Cpu className="w-3 h-3 text-[#444]" /> {node.cpuCapacity}</div>
-                                    <div className="flex items-center gap-1"><Database className="w-3 h-3 text-[#444]" /> {node.memoryCapacity}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
-    );
-}
 
-function StorageView({ data }: { data: any }) {
-    if (!data || !data.pvcs || data.pvcs.length === 0) return <EmptyState label="No persistent storage volumes found." icon={Database} />;
     return (
         <div className="space-y-6">
+            <SectionHeader title="Compute Nodes" count={nodes.length} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {nodes.map((node, i) => (
+                    <Card key={i} className="bg-[#111]/50 border-[#222] hover:border-emerald-500/30 transition-all group overflow-hidden">
+                        <CardHeader className="p-5 border-b border-[#222]/50">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+                                        <Server className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{node.name}</h3>
+                                        <p className="text-[10px] text-[#555] font-mono">{node.kubeletVersion}</p>
+                                    </div>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${node.status === 'Ready' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                    {node.status}
+                                </span>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-5 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] text-[#555] uppercase font-bold tracking-widest">OS / ARCH</p>
+                                    <p className="text-xs text-[#E3E3E3]">{node.osImage} / {node.architecture}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] text-[#555] uppercase font-bold tracking-widest">Address</p>
+                                    <p className="text-xs text-[#E3E3E3]">{node.internalIP}</p>
+                                </div>
+                            </div>
+                            <div className="space-y-2 pt-2 border-t border-[#222]/50">
+                                <div className="flex justify-between text-[10px]">
+                                    <span className="text-[#666]">SYSTEM INFO</span>
+                                    <span className="text-[#E3E3E3] font-mono">{node.containerRuntimeVersion}</span>
+                                </div>
+                                <div className="p-2 bg-black/40 rounded border border-[#222] text-[10px] text-[#888] font-mono">
+                                    Kernel: {node.kernelVersion}
+                                </div>
+                                <div className="flex justify-between text-[10px] items-center pt-2">
+                                    <span className="text-[#666]">CAPACITY</span>
+                                    <div className="flex items-center gap-3 text-[#E3E3E3] font-mono">
+                                        <div className="flex items-center gap-1"><Cpu className="w-3 h-3 text-[#444]" /> {node.cpuCapacity}</div>
+                                        <div className="flex items-center gap-1"><Database className="w-3 h-3 text-[#444]" /> {node.memoryCapacity}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ===== TAB 2: STORAGE =====
+function StorageTab() {
+    const [data, setData] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
+        const token = localStorage.getItem("token");
+        try {
+            const res = await fetch("/api/v1/observability/infra/storage", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) setData(await res.json());
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    if (isLoading && !data) return <LoadingState />;
+    if (!data || !data.pvcs || data.pvcs.length === 0) return <EmptyState label="No persistent storage volumes found." icon={Database} />;
+
+    return (
+        <div className="space-y-6">
+            <SectionHeader title="Storage Volumes" count={data.pvcs.length} />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {data.storageClasses.map((sc: string, i: number) => (
                     <div key={i} className="p-4 bg-[#111] border border-[#222] rounded-xl flex items-center gap-4">
@@ -213,74 +187,149 @@ function StorageView({ data }: { data: any }) {
     );
 }
 
-function NetworkView({ assets }: { assets: any[] }) {
+// ===== TAB 3: NETWORK =====
+function NetworkTab() {
+    const [assets, setAssets] = useState<any[] | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
+        const token = localStorage.getItem("token");
+        try {
+            const res = await fetch("/api/v1/observability/infra/network", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) setAssets(await res.json());
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    if (isLoading && !assets) return <LoadingState />;
     if (!assets || assets.length === 0) return <EmptyState label="No ingress or service assets mapped." icon={Globe} />;
+
     return (
-        <div className="bg-[#111]/40 border border-[#222] rounded-xl overflow-hidden">
-            <table className="w-full text-left">
-                <thead>
-                    <tr className="border-b border-[#222] bg-[#161616]/50">
-                        <th className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">Asset Name</th>
-                        <th className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">Namespace</th>
-                        <th className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">Type</th>
-                        <th className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">Specification</th>
-                        <th className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">Status</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-[#222]">
-                    {assets.map((asset, i) => (
-                        <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
-                            <td className="px-6 py-4 text-sm font-bold text-[#E3E3E3]">
-                                <div className="flex items-center gap-3">
-                                    {asset.type === 'Service' ? <Network className="w-4 h-4 text-purple-400" /> : <Globe className="w-4 h-4 text-blue-400" />}
-                                    {asset.name}
-                                </div>
-                            </td>
-                            <td className="px-6 py-4 text-xs font-mono text-[#666]">{asset.namespace}</td>
-                            <td className="px-6 py-4 text-[10px] font-bold text-[#888] uppercase tracking-widest">{asset.type}</td>
-                            <td className="px-6 py-4 text-xs font-mono text-emerald-400/80 bg-emerald-500/5 rounded-md px-2 py-0.5 border border-emerald-500/10 w-fit">{asset.spec}</td>
-                            <td className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">{asset.status}</td>
+        <div className="space-y-6">
+            <SectionHeader title="Network Assets" count={assets.length} />
+            <div className="bg-[#111]/40 border border-[#222] rounded-xl overflow-hidden">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="border-b border-[#222] bg-[#161616]/50">
+                            <th className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">Asset Name</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">Namespace</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">Type</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">Specification</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">Status</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody className="divide-y divide-[#222]">
+                        {assets.map((asset: any, i: number) => (
+                            <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
+                                <td className="px-6 py-4 text-sm font-bold text-[#E3E3E3]">
+                                    <div className="flex items-center gap-3">
+                                        {asset.type === 'Service' ? <Network className="w-4 h-4 text-purple-400" /> : <Globe className="w-4 h-4 text-blue-400" />}
+                                        {asset.name}
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-xs font-mono text-[#666]">{asset.namespace}</td>
+                                <td className="px-6 py-4 text-[10px] font-bold text-[#888] uppercase tracking-widest">{asset.type}</td>
+                                <td className="px-6 py-4 text-xs font-mono text-emerald-400/80 bg-emerald-500/5 rounded-md px-2 py-0.5 border border-emerald-500/10 w-fit">{asset.spec}</td>
+                                <td className="px-6 py-4 text-[10px] font-bold text-[#555] uppercase tracking-widest">{asset.status}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }
 
-function TopologyView({ entries }: { entries: any[] }) {
+// ===== TAB 4: TOPOLOGY =====
+function TopologyTab() {
+    const [entries, setEntries] = useState<any[] | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchData = useCallback(async () => {
+        const token = localStorage.getItem("token");
+        try {
+            const res = await fetch("/api/v1/observability/infra/topology", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) setEntries(await res.json());
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    if (isLoading && !entries) return <LoadingState />;
     if (!entries || entries.length === 0) return <EmptyState label="No logical topology mapped yet." icon={Layers} />;
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {entries.map((entry, i) => (
-                <div key={i} className="p-6 bg-[#111] border border-[#222] rounded-2xl flex flex-col gap-4 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-[40px] rounded-full translate-x-10 -translate-y-10 group-hover:bg-orange-500/10 transition-all" />
-                    <div className="flex items-center justify-between relative z-10">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
-                                <Layout className="w-5 h-5" />
+        <div className="space-y-6">
+            <SectionHeader title="Topology Mapping" count={entries.length} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {entries.map((entry: any, i: number) => (
+                    <div key={i} className="p-6 bg-[#111] border border-[#222] rounded-2xl flex flex-col gap-4 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-[40px] rounded-full translate-x-10 -translate-y-10 group-hover:bg-orange-500/10 transition-all" />
+                        <div className="flex items-center justify-between relative z-10">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
+                                    <Layout className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-white">{entry.projectName}</h3>
+                                    <p className="text-xs text-[#555] font-mono">{entry.namespace}</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-base font-bold text-white">{entry.projectName}</h3>
-                                <p className="text-xs text-[#555] font-mono">{entry.namespace}</p>
+                            <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20">
+                                {entry.status}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 mt-2 relative z-10">
+                            <div className="p-3 bg-black/40 border border-[#222] rounded-xl text-center">
+                                <p className="text-[10px] text-[#555] font-bold uppercase tracking-widest mb-1">Apps</p>
+                                <p className="text-xl font-black text-white">{entry.appCount}</p>
+                            </div>
+                            <div className="p-3 bg-black/40 border border-[#222] rounded-xl text-center">
+                                <p className="text-[10px] text-[#555] font-bold uppercase tracking-widest mb-1">Pods</p>
+                                <p className="text-xl font-black text-white">{entry.podCount}</p>
                             </div>
                         </div>
-                        <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20">
-                            {entry.status}
-                        </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 mt-2 relative z-10">
-                        <div className="p-3 bg-black/40 border border-[#222] rounded-xl text-center">
-                            <p className="text-[10px] text-[#555] font-bold uppercase tracking-widest mb-1">Apps</p>
-                            <p className="text-xl font-black text-white">{entry.appCount}</p>
-                        </div>
-                        <div className="p-3 bg-black/40 border border-[#222] rounded-xl text-center">
-                            <p className="text-[10px] text-[#555] font-bold uppercase tracking-widest mb-1">Pods</p>
-                            <p className="text-xl font-black text-white">{entry.podCount}</p>
-                        </div>
-                    </div>
-                </div>
-            ))}
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ===== SHARED UI =====
+function SectionHeader({ title, count }: { title: string; count?: number }) {
+    return (
+        <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-[#E3E3E3]">{title}</h2>
+            {count !== undefined && <span className="text-xs text-[#888] bg-[#1A1A1A] px-2 py-1 rounded-md border border-[#2C2C2C]">{count} total</span>}
+        </div>
+    );
+}
+
+function LoadingState() {
+    return (
+        <div className="flex-1 flex items-center justify-center py-20">
+            <div className="flex flex-col items-center gap-4">
+                <div className="w-10 h-10 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                <span className="text-xs font-mono text-[#444] uppercase tracking-widest">Scanning Infrastructure...</span>
+            </div>
         </div>
     );
 }
