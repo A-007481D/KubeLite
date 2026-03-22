@@ -74,7 +74,12 @@ public class IAMController {
     @GetMapping("/policies")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<OrgPolicy>> listGlobalPolicies() {
-        // For now, listing all policies as "templates"
         return ResponseEntity.ok(orgPolicyRepository.findAll());
+    }
+
+    @GetMapping("/audit-logs")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<com.ork8stra.audit.AuditLog>> listAuditLogs() {
+        return ResponseEntity.ok(auditLogRepository.findAllByOrderByCreatedAtDesc());
     }
 }
