@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { 
     Activity, Server, Cpu, AlertTriangle, CheckCircle2, 
     XCircle, Clock, ArrowUpRight, ArrowDownRight, RotateCcw,
-    FileText, ChevronDown, Shield, Globe, Lock, Container, Gauge,
-    ExternalLink, Search, RefreshCw
+    Shield, Globe, Lock, Container, Gauge,
+    ExternalLink, Search, RefreshCw, Plus, Filter, Layout, Box
 } from "lucide-react";
 import type { Organization, Team, Project } from "../types/index";
 import {
     AreaChart, Area, LineChart, Line, BarChart, Bar,
-    XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+    XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell
 } from "recharts";
 
 interface ObservabilityDashboardProps {
@@ -47,12 +47,14 @@ const MetricCard = ({ label, value, unit, trend, trendUp, icon: Icon, color }: a
 );
 
 const ChartPanel = ({ title, subtitle, children }: any) => (
-    <div className="bg-[#141414] border border-[#2C2C2C] rounded-xl overflow-hidden hover:border-[#444] transition-all">
+    <div className="bg-[#141414] border border-[#2C2C2C] rounded-xl overflow-hidden hover:border-[#444] transition-all flex flex-col h-[300px]">
         <div className="px-5 py-4 border-b border-[#2C2C2C]">
             <h3 className="text-sm font-semibold text-[#E3E3E3]">{title}</h3>
             {subtitle && <p className="text-xs text-[#888] mt-0.5">{subtitle}</p>}
         </div>
-        <div className="p-4 h-[240px]">{children}</div>
+        <div className="p-4 flex-1 min-h-0 min-w-0">
+            {children}
+        </div>
     </div>
 );
 
@@ -124,7 +126,7 @@ function OverviewTab({ token, org, headers }: any) {
             for (const p of allProjects) {
                 const [metricsRes, sparklinesRes, eventsRes] = await Promise.all([
                     fetch(`/api/v1/apps/projects/${p.id}/metrics`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
-                    fetch(`/api/v1/apps/projects/${p.id}/sparklines`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : {}),
+                    fetch(`/api/v1/apps/projects/${p.id}/sparklines`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : ({} as Record<string, any[]>)),
                     fetch(`/api/v1/apps/projects/${p.id}/events`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : [])
                 ]);
                 if (metricsRes) {

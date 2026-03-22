@@ -193,11 +193,23 @@ const ViewToolbar = ({ sortBy, onSortToggle, filterMode, onFilterChange, viewMod
 };
 
 const Breadcrumbs = ({ viewState, onNavigate }: { viewState: ViewState, onNavigate: (v: ViewState) => void }) => {
-    if (viewState.type === 'GLOBAL' || viewState.type === 'OBSERVABILITY') {
+    const isGlobalView = ['GLOBAL', 'OBSERVABILITY', 'INFRA', 'DELIVERY', 'SECURITY'].includes(viewState.type);
+    
+    if (isGlobalView) {
+        let label = 'Platform Overview';
+        let Icon = Building2;
+
+        switch (viewState.type) {
+            case 'OBSERVABILITY': label = 'Observability Center'; Icon = Activity; break;
+            case 'INFRA': label = 'Infrastructure Registry'; Icon = Layers; break;
+            case 'DELIVERY': label = 'Delivery Center'; Icon = Zap; break;
+            case 'SECURITY': label = 'Security Center'; Icon = Shield; break;
+        }
+
         return (
             <div className="flex items-center gap-2 text-sm text-[#E3E3E3] h-full">
-                {viewState.type === 'GLOBAL' ? <Building2 className="w-4 h-4 text-[#888]" /> : <Activity className="w-4 h-4 text-[#888]" />}
-                <span className="font-semibold tracking-wide">{viewState.type === 'GLOBAL' ? 'Platform Overview' : 'Observability Center'}</span>
+                <Icon className="w-4 h-4 text-[#888]" />
+                <span className="font-semibold tracking-wide">{label}</span>
             </div>
         );
     }
@@ -1178,8 +1190,8 @@ export default function Dashboard() {
                         <>
                             {/* Navigation */}
                             <div className="space-y-0.5">
-                                <SidebarItem icon={Building2} label="Platform Overview" active={viewState.type === 'GLOBAL'} collapsed={!isSidebarOpen} onClick={() => { setCurrentTeam(null); setViewState({ type: 'GLOBAL' }); }} />
-                                <SidebarItem icon={LineChart} label="Observability" active={viewState.type === 'OBSERVABILITY'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setCurrentTeam(null); setObsTab('overview'); setViewState({ type: 'OBSERVABILITY' }); }} />
+                                <SidebarItem icon={Building2} label="Platform Overview" active={(viewState.type as string) === 'GLOBAL'} collapsed={!isSidebarOpen} onClick={() => { setCurrentTeam(null); setViewState({ type: 'GLOBAL' }); }} />
+                                <SidebarItem icon={LineChart} label="Observability" active={(viewState.type as string) === 'OBSERVABILITY'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setCurrentTeam(null); setObsTab('overview'); setViewState({ type: 'OBSERVABILITY' }); }} />
                                 <SidebarItem icon={Layers} label="Projects" active={viewState.type === 'ROOT' || viewState.type === 'PROJECT' || viewState.type === 'SERVICE'} collapsed={!isSidebarOpen} onClick={() => setViewState({ type: 'ROOT' })} />
                                 <SidebarItem icon={Bell} label="Notifications" collapsed={!isSidebarOpen} onClick={() => {}} />
                             </div>
@@ -1204,9 +1216,9 @@ export default function Dashboard() {
                                                 exit={{ height: 0, opacity: 0 }}
                                                 className="space-y-0.5 overflow-hidden"
                                             >
-                                                <SidebarItem icon={Server} label="Infrastructure" active={viewState.type === 'INFRA'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setInfraTab('nodes'); setViewState({ type: 'INFRA' }); }} />
-                                                <SidebarItem icon={Zap} label="Deployments" active={viewState.type === 'DELIVERY'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setViewState({ type: 'DELIVERY' }); }} />
-                                                <SidebarItem icon={Shield} label="Security" active={viewState.type === 'SECURITY'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setViewState({ type: 'SECURITY' }); }} />
+                                                <SidebarItem icon={Server} label="Infrastructure" active={(viewState.type as string) === 'INFRA'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setInfraTab('nodes'); setViewState({ type: 'INFRA' }); }} />
+                                                <SidebarItem icon={Zap} label="Deployments" active={(viewState.type as string) === 'DELIVERY'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setViewState({ type: 'DELIVERY' }); }} />
+                                                <SidebarItem icon={Shield} label="Security" active={(viewState.type as string) === 'SECURITY'} hasSub collapsed={!isSidebarOpen} onClick={() => { prevViewStateRef.current = viewState; setViewState({ type: 'SECURITY' }); }} />
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
@@ -1314,7 +1326,7 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {viewState.type !== 'OBSERVABILITY' && (
+                        {!['OBSERVABILITY', 'INFRA', 'DELIVERY', 'SECURITY'].includes(viewState.type) && (
                             <div className="relative group hidden sm:block">
                                 <Search className="w-4 h-4 text-[#555] absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-[#E3E3E3] transition-colors" />
                                 <input
@@ -1365,7 +1377,7 @@ export default function Dashboard() {
                     ) : (
                         <>
                             {/* Toolbar (Only for Lists) */}
-                            {viewState.type !== 'SERVICE' && viewState.type !== 'GLOBAL' && viewState.type !== 'OBSERVABILITY' && (
+                            {viewState.type !== 'SERVICE' && viewState.type !== 'GLOBAL' && !['OBSERVABILITY', 'INFRA', 'DELIVERY', 'SECURITY'].includes(viewState.type) && (
                                 <ViewToolbar
                                     sortBy={sortBy}
                                     onSortToggle={() => setSortBy(s => s === 'Date' ? 'Name' : 'Date')}
