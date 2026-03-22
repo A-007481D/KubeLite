@@ -9,7 +9,6 @@ import com.ork8stra.projectmanagement.Project;
 import com.ork8stra.projectmanagement.ProjectService;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.IntOrString;
-import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
@@ -464,21 +463,7 @@ public class DeploymentService {
 
 
         private void ensureNamespace(Project project) {
-                String namespace = project.getK8sNamespace();
-                if (kubernetesClient.namespaces().withName(namespace).get() != null) {
-                        return;
-                }
-
-                log.warn("Namespace '{}' missing; recreating it before deployment reconciliation", namespace);
-                kubernetesClient.namespaces().resource(
-                                new NamespaceBuilder()
-                                                .withNewMetadata()
-                                                .withName(namespace)
-                                                .addToLabels("managed-by", "ork8stra")
-                                                .addToLabels("project-id", project.getId().toString())
-                                                .endMetadata()
-                                                .build())
-                                .createOrReplace();
+                projectService.ensureNamespace(project);
         }
 
         private void scaleApplication(Application app, Project project, int replicas) {

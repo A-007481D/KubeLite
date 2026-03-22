@@ -82,6 +82,26 @@ public class ProjectService {
         return kubernetesClient;
     }
 
+    public void ensureNamespace(Project project) {
+        String namespace = project.getK8sNamespace();
+        if (kubernetesClient.namespaces().withName(namespace).get() != null) {
+            return;
+        }
+
+        org.slf4j.LoggerFactory.getLogger(ProjectService.class)
+                .info("Namespace '{}' missing; creating it", namespace);
+        
+        kubernetesClient.namespaces().resource(
+                new NamespaceBuilder()
+                        .withNewMetadata()
+                        .withName(namespace)
+                        .addToLabels("managed-by", "ork8stra")
+                        .addToLabels("project-id", project.getId().toString())
+                        .endMetadata()
+                        .build())
+                .createOrReplace();
+    }
+
     @Transactional
     public void deleteProject(UUID id) {
         Project project = getProjectById(id);

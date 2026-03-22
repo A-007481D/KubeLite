@@ -2,10 +2,9 @@ package com.ork8stra.deploymentengine;
 
 import com.ork8stra.applicationmanagement.Application;
 import com.ork8stra.projectmanagement.Project;
+import com.ork8stra.projectmanagement.ProjectService;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.dsl.MixedOperation;
-import io.fabric8.kubernetes.client.dsl.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Answers;
@@ -15,19 +14,19 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class KanikoJobFactoryTest {
 
     private KubernetesClient kubernetesClient;
+    private ProjectService projectService;
     private KanikoJobFactory factory;
 
     @BeforeEach
     void setUp() {
         kubernetesClient = mock(KubernetesClient.class, Answers.RETURNS_DEEP_STUBS);
-        factory = new KanikoJobFactory(kubernetesClient);
+        projectService = mock(ProjectService.class);
+        factory = new KanikoJobFactory(kubernetesClient, projectService);
     }
 
     @Test

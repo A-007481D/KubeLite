@@ -2,6 +2,7 @@ package com.ork8stra.deploymentengine;
 
 import com.ork8stra.applicationmanagement.Application;
 import com.ork8stra.projectmanagement.Project;
+import com.ork8stra.projectmanagement.ProjectService;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.Quantity;
@@ -29,6 +30,7 @@ import java.util.UUID;
 public class KanikoJobFactory {
 
     private final KubernetesClient kubernetesClient;
+    private final ProjectService projectService;
 
     public Job createKanikoJob(Application application, Project project, String imageDestination, UUID buildId) {
         ensureCachingPvcs(project);
@@ -354,6 +356,7 @@ public class KanikoJobFactory {
     }
 
     private void ensureCachingPvcs(Project project) {
+        projectService.ensureNamespace(project);
         String namespace = project.getK8sNamespace();
         ensurePvc(namespace, "ork8stra-maven-cache", "5Gi");
         ensurePvc(namespace, "ork8stra-nix-cache", "10Gi");
