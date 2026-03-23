@@ -53,6 +53,26 @@ public class TeamMemberController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{userId}/policies/{policyId}")
+    @PreAuthorize("@rbacService.hasTeamAccess(#teamId)")
+    public ResponseEntity<TeamMemberResponse> attachPolicy(
+            @PathVariable UUID teamId,
+            @PathVariable UUID userId,
+            @PathVariable UUID policyId) {
+        TeamMember member = teamService.attachPolicy(teamId, userId, policyId);
+        return ResponseEntity.ok(toResponse(member));
+    }
+
+    @DeleteMapping("/{userId}/policies/{policyId}")
+    @PreAuthorize("@rbacService.hasTeamAccess(#teamId)")
+    public ResponseEntity<Void> detachPolicy(
+            @PathVariable UUID teamId,
+            @PathVariable UUID userId,
+            @PathVariable UUID policyId) {
+        teamService.detachPolicy(teamId, userId, policyId);
+        return ResponseEntity.noContent().build();
+    }
+
     private TeamMemberResponse toResponse(TeamMember member) {
         User user = userRepository.findById(member.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -64,6 +84,7 @@ public class TeamMemberController {
                 .email(user.getEmail())
                 .role(member.getRole())
                 .joinedAt(member.getJoinedAt())
+                .policyIds(member.getPolicyIds())
                 .build();
     }
 }

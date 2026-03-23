@@ -18,4 +18,5 @@ public class TeamMemberResponse {
     private String email;
     private String role; // "lead", "member", "viewer"
     private Instant joinedAt;
+    private java.util.List<java.util.UUID> policyIds;
 }

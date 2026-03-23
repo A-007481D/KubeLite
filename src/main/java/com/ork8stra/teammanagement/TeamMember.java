@@ -36,8 +36,15 @@ public class TeamMember {
     @Column(name = "joined_at", nullable = false, updatable = false)
     private Instant joinedAt;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "team_member_policies", joinColumns = @JoinColumn(name = "member_id"))
+    @Column(name = "policy_id")
+    @Builder.Default
+    private java.util.List<UUID> policyIds = new java.util.ArrayList<>();
+
     @PrePersist
     protected void onCreate() {
         if (joinedAt == null) joinedAt = Instant.now();
+        if (policyIds == null) policyIds = new java.util.ArrayList<>();
     }
 }

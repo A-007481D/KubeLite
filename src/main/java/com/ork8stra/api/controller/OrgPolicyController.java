@@ -32,6 +32,20 @@ public class OrgPolicyController {
         return ResponseEntity.ok(orgPolicyRepository.save(policy));
     }
 
+    @PutMapping("/{policyId}")
+    @PreAuthorize("@rbacService.hasOrgRole(#orgId, 'ADMIN')")
+    public ResponseEntity<OrgPolicy> updatePolicy(
+            @PathVariable UUID orgId,
+            @PathVariable UUID policyId,
+            @RequestBody OrgPolicy update) {
+        OrgPolicy existing = orgPolicyRepository.findById(policyId)
+                .orElseThrow(() -> new RuntimeException("Policy not found"));
+        existing.setName(update.getName());
+        existing.setDescription(update.getDescription());
+        existing.setDocument(update.getDocument());
+        return ResponseEntity.ok(orgPolicyRepository.save(existing));
+    }
+
     @DeleteMapping("/{policyId}")
     @PreAuthorize("@rbacService.hasOrgRole(#orgId, 'ADMIN')")
     public ResponseEntity<Void> deletePolicy(

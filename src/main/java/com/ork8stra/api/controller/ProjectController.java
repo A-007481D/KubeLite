@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,6 +23,7 @@ public class ProjectController {
 
     private final ProjectService projectService;
     private final TeamService teamService;
+    private final com.ork8stra.auth.security.RbacService rbacService;
 
     @PostMapping
     public ResponseEntity<ProjectResponse> createProject(
@@ -48,10 +48,14 @@ public class ProjectController {
     }
 
     @DeleteMapping("/{projectId}")
-    @PreAuthorize("@rbacService.hasOrgRole(#orgId, 'ADMIN') or @rbacService.hasPermission(#orgId, 'project:delete')")
     public ResponseEntity<Void> deleteProject(
             @PathVariable UUID projectId,
             @RequestParam UUID orgId) {
+        Project project = projectService.getProjectById(projectId);
+        if (!rbacService.hasOrgRole(orgId, "ADMIN") && 
+            !rbacService.hasPermission(orgId, project.getTeamId(), "project:delete")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         projectService.deleteProject(projectId);
         return ResponseEntity.noContent().build();
     }

@@ -3,7 +3,6 @@ package com.ork8stra.organizationmanagement;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -32,9 +31,6 @@ public class OrgPolicy {
     @Column(nullable = true)
     private String description;
 
-    @Builder.Default
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "org_policy_permissions", joinColumns = @JoinColumn(name = "policy_id"))
-    @Column(name = "permission")
-    private List<String> permissions = new java.util.ArrayList<>();
+    @Column(columnDefinition = "TEXT", nullable = true)
+    private String document;
 }

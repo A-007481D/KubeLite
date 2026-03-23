@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, Users, Key, Activity, Search, 
-  AlertCircle, 
   ChevronRight, Building2, Clock, Filter,
   ShieldCheck, ShieldAlert, Zap, Lock
 } from 'lucide-react';
@@ -35,8 +34,25 @@ interface Policy {
   id: string;
   name: string;
   description: string;
-  permissions: string[];
+  document: string;
   organizationId?: string;
+}
+
+interface Team {
+  id: string;
+  name: string;
+  organizationId: string;
+  createdAt: string;
+}
+
+interface TeamMember {
+  id: string;
+  userId: string;
+  username: string;
+  email: string;
+  role: string;
+  joinedAt: string;
+  policyIds: string[];
 }
 
 interface AuditLog {
@@ -52,11 +68,19 @@ interface AuditLog {
 }
 
 const IAMDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'policies' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'teams' | 'policies' | 'audit'>('overview');
   const [summary, setSummary] = useState<IAMSummary | null>(null);
   const [users, setUsers] = useState<UserIdentity[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  
+  const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
+  const [policyDocText, setPolicyDocText] = useState("");
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,6 +107,11 @@ const IAMDashboard: React.FC = () => {
         if (res.ok) setPolicies(await res.json());
       }
 
+      if (activeTab === 'teams') {
+        const res = await fetch('/api/v1/iam/teams');
+        if (res.ok) setTeams(await res.json());
+      }
+
       if (activeTab === 'audit') {
         const res = await fetch('/api/v1/iam/audit-logs');
         if (res.ok) setAuditLogs(await res.json());
@@ -96,9 +125,62 @@ const IAMDashboard: React.FC = () => {
     }
   };
 
+  const fetchTeamMembers = async (teamId: string) => {
+    try {
+      const res = await fetch(`/api/v1/teams/${teamId}/members`);
+      if (res.ok) setTeamMembers(await res.json());
+    } catch (err) {
+      console.error('Failed to fetch team members:', err);
+    }
+  };
+
+  const handleAttachPolicy = async (teamId: string, userId: string, policyId: string) => {
+    try {
+      const res = await fetch(`/api/v1/teams/${teamId}/members/${userId}/policies/${policyId}`, {
+        method: 'POST'
+      });
+      if (res.ok) fetchTeamMembers(teamId);
+    } catch (err) {
+      console.error('Failed to attach policy:', err);
+    }
+  };
+
+  const handleDetachPolicy = async (teamId: string, userId: string, policyId: string) => {
+    try {
+      const res = await fetch(`/api/v1/teams/${teamId}/members/${userId}/policies/${policyId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) fetchTeamMembers(teamId);
+    } catch (err) {
+      console.error('Failed to detach policy:', err);
+    }
+  };
+
+  const handleSavePolicy = async () => {
+    if (!editingPolicy) return;
+    try {
+      const res = await fetch(`/api/v1/organizations/${editingPolicy.organizationId}/policies/${editingPolicy.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingPolicy.name,
+          description: editingPolicy.description,
+          document: policyDocText
+        })
+      });
+      if (res.ok) {
+        setEditingPolicy(null);
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Failed to save policy:', err);
+    }
+  };
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Building2 },
     { id: 'users', label: 'Identity Hub', icon: Users },
+    { id: 'teams', label: 'Teams & Groups', icon: ShieldCheck },
     { id: 'policies', label: 'Policy Templates', icon: Key },
     { id: 'audit', label: 'Security Audit', icon: Activity },
   ] as const;
@@ -325,24 +407,160 @@ const IAMDashboard: React.FC = () => {
                        </div>
                        <CardTitle className="text-white mt-4">{policy.name}</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                       <p className="text-sm text-[#888] line-clamp-2">{policy.description}</p>
-                       <div className="flex flex-wrap gap-2">
-                          {policy.permissions.slice(0, 3).map((p) => (
-                             <Badge key={p} variant="outline" className="text-[10px] bg-[#1a1a1a] border-[#333] text-[#666]">
-                                {p}
+                     <CardContent className="space-y-4">
+                        <p className="text-sm text-[#888] line-clamp-2">{policy.description}</p>
+                        <div className="flex flex-wrap gap-2 min-h-[24px]">
+                           {policy.document ? (
+                             <Badge variant="outline" className="text-[10px] bg-purple-500/5 border-purple-500/10 text-purple-400">
+                                JSON Document Active
                              </Badge>
-                          ))}
-                          {policy.permissions.length > 3 && (
-                             <span className="text-[10px] text-[#444]">+{policy.permissions.length - 3} more</span>
-                          )}
-                       </div>
-                       <Button variant="outline" size="sm" className="w-full border-[#333] text-[#999] group-hover:bg-[#1f1f1f] group-hover:text-white">
-                          View Definition
-                       </Button>
-                    </CardContent>
+                           ) : (
+                             <span className="text-[10px] text-[#444] italic">Empty definition</span>
+                           )}
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full border-[#333] text-[#999] group-hover:bg-[#1f1f1f] group-hover:text-white"
+                          onClick={() => {
+                            setEditingPolicy(policy);
+                            setPolicyDocText(policy.document || "");
+                          }}
+                        >
+                           Edit Definition
+                        </Button>
+                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'teams' && (
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              <div className="md:col-span-4 space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-[#555] uppercase tracking-wider">All Teams</h3>
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/20">{teams.length}</Badge>
+                </div>
+                <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                  {teams.map((team) => (
+                    <button
+                      key={team.id}
+                      onClick={() => {
+                        setSelectedTeam(team);
+                        fetchTeamMembers(team.id);
+                      }}
+                      className={`w-full text-left p-4 rounded-lg border transition-all group ${
+                        selectedTeam?.id === team.id 
+                          ? 'bg-purple-500/5 border-purple-500/50' 
+                          : 'bg-[#141414] border-[#242424] hover:border-[#333]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium text-white group-hover:text-purple-400 transition-colors">{team.name}</div>
+                        <ChevronRight className={`w-4 h-4 transition-transform ${selectedTeam?.id === team.id ? 'rotate-90 text-purple-400' : 'text-[#444]'}`} />
+                      </div>
+                      <div className="text-[10px] text-[#555] mt-1 font-mono">ID: {team.id.substring(0, 8)}...</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-8">
+                {selectedTeam ? (
+                  <div className="space-y-6">
+                    <div className="p-6 bg-[#141414] border border-[#242424] rounded-lg">
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h3 className="text-xl font-bold text-white">{selectedTeam.name} Members</h3>
+                          <p className="text-xs text-[#666]">Managing granular access for {teamMembers.length} users in this team.</p>
+                        </div>
+                        <Button size="sm" className="bg-purple-600 hover:bg-purple-500 text-white">
+                          <Plus className="w-3.5 h-3.5 mr-2" />
+                          Add Member
+                        </Button>
+                      </div>
+
+                      <div className="space-y-4">
+                        {teamMembers.map((member) => (
+                          <div key={member.id} className="p-4 bg-[#0F0F0F] border border-[#242424] rounded-lg space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center text-xs font-bold text-purple-400 border border-purple-500/20">
+                                  {member.username.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-white">{member.username}</div>
+                                  <div className="text-[10px] text-[#666]">{member.email} • {member.role}</div>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="text-[9px] uppercase border-[#333] text-[#555]">
+                                {member.role}
+                              </Badge>
+                            </div>
+
+                            <div className="pt-4 border-t border-[#1f1f1f]">
+                              <div className="text-[10px] font-bold text-[#444] uppercase mb-2">Assigned Policies</div>
+                              <div className="flex flex-wrap gap-2">
+                                {member.policyIds.map(pid => {
+                                  const policyName = policies.find(p => p.id === pid)?.name || 'Unknown Policy';
+                                  return (
+                                    <Badge 
+                                      key={pid} 
+                                      className="bg-purple-500/10 text-purple-400 border-purple-500/20 pr-1 group"
+                                    >
+                                      {policyName}
+                                      <button 
+                                        onClick={() => handleDetachPolicy(selectedTeam.id, member.userId, pid)}
+                                        className="ml-1.5 hover:text-white transition-colors"
+                                      >
+                                        ×
+                                      </button>
+                                    </Badge>
+                                  );
+                                })}
+                                <select 
+                                  className="bg-[#1a1a1a] border border-[#333] text-[10px] text-[#666] rounded px-2 py-0.5 focus:outline-none focus:border-purple-500/50"
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      handleAttachPolicy(selectedTeam.id, member.userId, e.target.value);
+                                      e.target.value = '';
+                                    }
+                                  }}
+                                >
+                                  <option value="">+ Add Policy</option>
+                                  {policies
+                                    .filter(p => !member.policyIds.includes(p.id))
+                                    .map(p => (
+                                      <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))
+                                  }
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {teamMembers.length === 0 && (
+                          <div className="py-12 text-center border-2 border-dashed border-[#242424] rounded-lg">
+                            <Users className="w-12 h-12 text-[#242424] mx-auto mb-3" />
+                            <p className="text-[#666] text-sm font-medium">No members found in this team.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center p-12 bg-[#141414] border border-[#242424] border-dashed rounded-lg text-center">
+                    <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-4">
+                      <ShieldCheck className="w-8 h-8 text-purple-400/50" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">Select a team to manage</h3>
+                    <p className="text-[#666] text-sm max-w-xs">
+                      Choose a team from the left sidebar to audit its members and assign granular platform-wide policies.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -413,6 +631,75 @@ const IAMDashboard: React.FC = () => {
             </div>
           )}
         </motion.div>
+      </AnimatePresence>
+      {/* Policy Editor Modal */}
+      <AnimatePresence>
+        {editingPolicy && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#141414] border border-[#242424] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+            >
+              <div className="p-6 border-b border-[#242424] flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-white">Edit Policy Document</h3>
+                  <p className="text-xs text-[#666]">{editingPolicy.name}</p>
+                </div>
+                <button 
+                  onClick={() => setEditingPolicy(null)}
+                  className="p-2 text-[#444] hover:text-white transition-colors"
+                >
+                  <ShieldAlert className="w-5 h-5 rotate-45" />
+                </button>
+              </div>
+
+              <div className="flex-1 p-6 space-y-4 overflow-y-auto">
+                <div className="bg-[#0F0F0F] rounded-lg border border-[#242424] flex flex-col h-[500px]">
+                  <div className="px-4 py-2 border-b border-[#242424] flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500/50" />
+                    <div className="w-3 h-3 rounded-full bg-orange-500/50" />
+                    <div className="w-3 h-3 rounded-full bg-emerald-500/50" />
+                    <span className="text-[10px] text-[#444] font-mono ml-2">policy-document.json</span>
+                  </div>
+                  <textarea
+                    value={policyDocText}
+                    onChange={(e) => setPolicyDocText(e.target.value)}
+                    className="flex-1 bg-transparent p-6 text-sm font-mono text-purple-300 focus:outline-none resize-none custom-scrollbar"
+                    placeholder='{ "Statement": [ ... ] }'
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-purple-500/5 border border-purple-500/10 rounded-lg">
+                    <h4 className="text-[10px] font-bold text-purple-400 uppercase mb-1">Editor Tip</h4>
+                    <p className="text-[11px] text-[#777]">Use wildcards like <code className="text-purple-300">*</code> for broad permissions across resources.</p>
+                  </div>
+                  <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg">
+                    <h4 className="text-[10px] font-bold text-blue-400 uppercase mb-1">Reference</h4>
+                    <p className="text-[11px] text-[#777]">Documents follow AWS IAM JSON structure (Effect, Action, Resource).</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-[#242424] flex justify-end gap-3 bg-[#111]">
+                <Button 
+                  variant="outline" 
+                  className="border-[#242424] text-[#888] hover:text-white"
+                  onClick={() => setEditingPolicy(null)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)]"
+                  onClick={handleSavePolicy}
+                >
+                  Save Policy
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
     </div>
   );

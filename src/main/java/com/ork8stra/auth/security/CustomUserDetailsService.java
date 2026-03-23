@@ -26,12 +26,21 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
-        return builder()
+        org.springframework.security.core.userdetails.User.UserBuilder builder = builder()
                 .username(user.getUsername())
-                .password(user.getPasswordHash())
-                .authorities(user.getRoles().stream()
-                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
-                        .collect(Collectors.toList()))
+                .password(user.getPasswordHash());
+
+        java.util.List<SimpleGrantedAuthority> authorities = user.getRoles().stream()
+                .map(role -> {
+                    String authority = "ROLE_" + role.name();
+                    return new SimpleGrantedAuthority(authority);
+                })
+                .collect(Collectors.toList());
+
+        System.out.println("[DEBUG AUTH] User: " + user.getUsername() + ", Roles in DB: " + user.getRoles() + ", Mapped Authorities: " + authorities);
+
+        return builder
+                .authorities(authorities)
                 .disabled(!user.isEnabled())
                 .build();
     }

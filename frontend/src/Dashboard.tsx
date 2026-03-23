@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import type { Project, Service, Deployment, ViewState, Team, Organization } from "./types/index";
 import {
     Settings, Search, Bell, Plus, ChevronRight, ChevronDown, 
-    Layout as LayoutIcon, Activity, 
+    Layout as LayoutIcon, Activity, Users, Key,
     Terminal, Globe, Shield, Database, Cpu, 
     Building2, ChevronLeft,
     FileText, BarChart3, Container, Gauge, Server, Lock, Layers,
@@ -37,19 +37,22 @@ import { Button } from "./components/ui/Button";
 import { Card, CardHeader, CardTitle } from "./components/ui/Card";
 
 const mapDeploymentStatusToUi = (status?: string | null): Service['status'] => {
-    switch (status) {
+    if (!status) return 'building';
+    const s = status.toUpperCase();
+    switch (s) {
         case 'HEALTHY':
+        case 'SUCCESS':
+        case 'ALIVE':
+        case 'COMPLETED':
             return 'live';
-        case 'STOPPED':
-            return 'stopped';
+        case 'STOPPED': return 'stopped';
         case 'RESTARTING':
-        case 'IN_PROGRESS':
-            return 'restarting';
+        case 'IN_PROGRESS': return 'restarting';
         case 'FAILED':
         case 'UNHEALTHY':
+        case 'ERROR':
             return 'failed';
-        default:
-            return 'building';
+        default: return 'building';
     }
 };
 
@@ -194,7 +197,7 @@ const ViewToolbar = ({ sortBy, onSortToggle, filterMode, onFilterChange, viewMod
 };
 
 const Breadcrumbs = ({ viewState, onNavigate }: { viewState: ViewState, onNavigate: (v: ViewState) => void }) => {
-    const isGlobalView = ['GLOBAL', 'OBSERVABILITY', 'INFRA', 'DELIVERY', 'SECURITY'].includes(viewState.type);
+    const isGlobalView = ['GLOBAL', 'OBSERVABILITY', 'INFRA', 'DELIVERY', 'SECURITY', 'IAM', 'SETTINGS'].includes(viewState.type);
     
     if (isGlobalView) {
         let label = 'Platform Overview';
@@ -206,6 +209,7 @@ const Breadcrumbs = ({ viewState, onNavigate }: { viewState: ViewState, onNaviga
             case 'DELIVERY': label = 'Delivery Center'; Icon = Zap; break;
             case 'SECURITY': label = 'Security Center'; Icon = Shield; break;
             case 'IAM': label = 'IAM Center'; Icon = Shield; break;
+            case 'SETTINGS': label = 'Organization Settings'; Icon = Settings; break;
         }
 
         return (
@@ -1173,7 +1177,22 @@ export default function Dashboard() {
                             <SidebarItem icon={Shield} label="Audit Trail" active={obsTab === 'audit'} collapsed={!isSidebarOpen} onClick={() => setObsTab('audit')} />
                             <SidebarItem icon={Lock} label="Network Policies" active={obsTab === 'network'} collapsed={!isSidebarOpen} onClick={() => setObsTab('network')} />
                         </div>
-                    ) : viewState.type === ('INFRA' as any) ? (
+                    ) : viewState.type === 'IAM' ? (
+                        <div className="space-y-0.5">
+                            <button
+                                onClick={() => setViewState(prevViewStateRef.current)}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors text-[#888] hover:text-[#E3E3E3] hover:bg-[#2C2C2C]/30 mb-4"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                                <span className="font-medium">IAM Center</span>
+                            </button>
+                            
+                            <SidebarItem icon={Building2} label="Overview" active={true} collapsed={!isSidebarOpen} onClick={() => {}} />
+                            <SidebarItem icon={Users} label="Identity Hub" collapsed={!isSidebarOpen} onClick={() => {}} />
+                            <SidebarItem icon={Key} label="Policy Templates" collapsed={!isSidebarOpen} onClick={() => {}} />
+                            <SidebarItem icon={Activity} label="Security Audit" collapsed={!isSidebarOpen} onClick={() => {}} />
+                        </div>
+                    ) : viewState.type === 'INFRA' ? (
                         <div className="space-y-0.5">
                             <button
                                 onClick={() => setViewState(prevViewStateRef.current)}
@@ -1199,7 +1218,7 @@ export default function Dashboard() {
                                 <SidebarItem 
                                     icon={Shield} 
                                     label="IAM Center" 
-                                    active={viewState.type === 'IAM'} 
+                                    active={(viewState.type as string) === 'IAM'} 
                                     collapsed={!isSidebarOpen} 
                                     onClick={() => setViewState({ type: 'IAM' })} 
                                 />
@@ -1415,6 +1434,9 @@ export default function Dashboard() {
                             )}
                             {viewState.type === 'IAM' && (
                                 <IAMDashboard />
+                            )}
+                            {viewState.type === 'INFRA' && (
+                                <InfrastructureDashboard activeTab={infraTab} />
                             )}
                             {viewState.type === 'ROOT' && viewMode === 'GRID' && (
                                 <ProjectsGrid projects={filteredProjects} onSelect={handleProjectSelect} />

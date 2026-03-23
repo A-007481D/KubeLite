@@ -71,4 +71,22 @@ public class TeamService {
     public void deleteTeam(UUID id) {
         teamRepository.deleteById(id);
     }
+
+    @Transactional
+    public TeamMember attachPolicy(UUID teamId, UUID userId, UUID policyId) {
+        TeamMember member = teamMemberRepository.findByUserIdAndTeamId(userId, teamId)
+                .orElseThrow(() -> new RuntimeException("Membership not found"));
+        if (!member.getPolicyIds().contains(policyId)) {
+            member.getPolicyIds().add(policyId);
+        }
+        return teamMemberRepository.save(member);
+    }
+
+    @Transactional
+    public TeamMember detachPolicy(UUID teamId, UUID userId, UUID policyId) {
+        TeamMember member = teamMemberRepository.findByUserIdAndTeamId(userId, teamId)
+                .orElseThrow(() -> new RuntimeException("Membership not found"));
+        member.getPolicyIds().remove(policyId);
+        return teamMemberRepository.save(member);
+    }
 }

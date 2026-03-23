@@ -1,11 +1,7 @@
 package com.ork8stra.auth.security;
 
-import com.ork8stra.organizationmanagement.OrgMember;
-import com.ork8stra.organizationmanagement.OrgMemberRepository;
-import com.ork8stra.organizationmanagement.OrgPolicyRepository;
-import com.ork8stra.organizationmanagement.Organization;
-import com.ork8stra.organizationmanagement.OrganizationRepository;
-import com.ork8stra.organizationmanagement.OrgRole;
+import com.ork8stra.auth.security.policy.PolicyEvaluator;
+import com.ork8stra.organizationmanagement.*;
 import com.ork8stra.teammanagement.TeamMemberRepository;
 import com.ork8stra.user.User;
 import com.ork8stra.user.UserRepository;
@@ -13,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,6 +22,7 @@ public class RbacService {
     private final UserRepository userRepository;
     private final OrgPolicyRepository orgPolicyRepository;
     private final OrganizationRepository organizationRepository;
+    private final PolicyEvaluator policyEvaluator;
 
     public boolean hasOrgRole(UUID orgId, String minRole) {
         User currentUser = getCurrentUser();
@@ -73,6 +69,15 @@ public class RbacService {
     }
 
     public boolean hasPermission(UUID orgId, String permission) {
+        return hasPermission(orgId, null, permission, "*");
+    }
+
+    public boolean hasPermission(UUID orgId, UUID teamId, String permission) {
+        String resource = (teamId != null) ? "arn:kubelite:team:" + teamId : "*";
+        return hasPermission(orgId, teamId, permission, resource);
+    }
+
+    public boolean hasPermission(UUID orgId, UUID teamId, String action, String resource) {
         User currentUser = getCurrentUser();
         if (currentUser == null) return false;
 
@@ -82,23 +87,38 @@ public class RbacService {
             return true;
         }
 
-        Optional<OrgMember> membership = orgMemberRepository.findByUserIdAndOrganizationId(currentUser.getId(), orgId);
-        if (membership.isEmpty()) return false;
+        java.util.List<String> rawPolicies = new java.util.ArrayList<>();
 
-        OrgMember member = membership.get();
-        
-        // 1. Check Role-based permissions (Broad defaults)
-        if (member.getRole() == OrgRole.ORG_OWNER || member.getRole() == OrgRole.ORG_ADMIN) {
-            return true; // Overlords
+        // 1. Collect Organization-level policies
+        Optional<OrgMember> orgMembership = orgMemberRepository.findByUserIdAndOrganizationId(currentUser.getId(), orgId);
+        if (orgMembership.isPresent()) {
+            OrgMember member = orgMembership.get();
+            if (member.getRole() == OrgRole.ORG_OWNER || member.getRole() == OrgRole.ORG_ADMIN) {
+                return true;
+            }
+            if (member.getPolicyIds() != null) {
+                orgPolicyRepository.findAllById(member.getPolicyIds())
+                    .forEach(p -> rawPolicies.add(p.getDocument()));
+            }
         }
 
-        // 2. Check Policy-based permissions (Granular)
-        List<UUID> policyIds = member.getPolicyIds();
-        if (policyIds == null || policyIds.isEmpty()) return false;
+        // 2. Collect Team-level policies
+        if (teamId != null) {
+            Optional<com.ork8stra.teammanagement.TeamMember> teamMembership = 
+                teamMemberRepository.findByUserIdAndTeamId(currentUser.getId(), teamId);
+            if (teamMembership.isPresent() && teamMembership.get().getPolicyIds() != null) {
+                orgPolicyRepository.findAllById(teamMembership.get().getPolicyIds())
+                    .forEach(p -> rawPolicies.add(p.getDocument()));
+            }
+        }
 
-        return orgPolicyRepository.findAllById(policyIds).stream()
-                .flatMap(p -> p.getPermissions().stream())
-                .anyMatch(p -> p.equalsIgnoreCase(permission) || p.equals("*"));
+        return policyEvaluator.isAllowed(rawPolicies, action, resource);
+    }
+
+    public boolean hasProjectPermission(UUID projectId, String action) {
+        // Implementation would fetch project -> teamId -> orgId and call:
+        // hasPermission(orgId, teamId, action, "arn:kubelite:project:" + projectId)
+        return false; 
     }
 
     private User getCurrentUser() {
