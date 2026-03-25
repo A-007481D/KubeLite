@@ -2,42 +2,37 @@ sequenceDiagram
     autonumber
     
     participant User as Developer
-    participant API as  API Service
-    participant DB as  PostgreSQL
-    participant MQ as  RabbitMQ
-    participant Worker as  Worker
-    participant K8s as Kubernetes
-    participant Kaniko as Kaniko
+    participant Ingest as Ingest Layer (API)
+    participant DB as PostgreSQL (State)
+    participant MQ as RabbitMQ (Queue)
+    participant Forge as Forge Engine (Worker)
+    participant Pulse as Pulse Cluster (K8s)
+    participant Kaniko as Build Tool (Kaniko)
     participant Registry as Registry
-    participant Redis as Redis
 
-    Note over User,Redis: === TRIGGER DEPLOY ===
+    Note over User,Registry: === STAGE 1: INGEST ===
     
-    User->>API: POST /api/apps/{id}/deploy
-    API->>DB: Create Build (QUEUED)
-    API->>MQ: Publish BuildRequestedEvent
-    API-->>User: 202 Accepted {buildId}
+    User->>Ingest: POST /api/apps/{id}/deploy
+    Ingest->>DB: Create Build (QUEUED)
+    Ingest->>MQ: Publish BuildRequestedEvent
+    Ingest-->>User: 202 Accepted {buildId}
     
-    Note over User,Redis: === BUILD PHASE ===
+    Note over User,Registry: === STAGE 2: FORGE ===
     
-    MQ->>Worker: Consume event
-    Worker->>DB: Update Build (BUILDING)
-    Worker->>K8s: Create Kaniko Pod
+    MQ->>Forge: Consume event
+    Forge->>DB: Update Build (BUILDING)
+    Forge->>Pulse: Create Build Pod (Kaniko)
     
     loop Stream Logs
-        Kaniko->>Worker: Pod logs
-        Worker->>Redis: PUBLISH logs
-        Redis-->>User: WebSocket
+        Kaniko->>Forge: Pod logs
+        Forge-->>User: WebSocket (Live Logs)
     end
     
     Kaniko->>Registry: Push image
-    Worker->>DB: Update Build (SUCCESS)
+    Forge->>DB: Update Build (SUCCESS)
     
-    Note over User,Redis: === DEPLOY PHASE ===
+    Note over User,Registry: === STAGE 3: PULSE ===
     
-    Worker->>K8s: Apply Deployment
-    Worker->>K8s: Apply Service
-    Worker->>K8s: Apply Ingress
-    Worker->>DB: Create Deployment (HEALTHY)
-    Worker->>Redis: PUBLISH complete
-    Redis-->>User: 🚀 Live at: app.project.ork8stra.local
+    Forge->>Pulse: Apply Deployment/Service/Ingress
+    Forge->>DB: Create Deployment (HEALTHY)
+    Pulse-->>User: 🚀 Live at: app.project.kubelite.local
