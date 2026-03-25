@@ -1,72 +1,50 @@
 classDiagram
-    LR
-
-    %% Entities
+    direction LR
 
     class User {
         - UUID id
-        - String user_name
         - String email
-        - String password
-        - <<enumeration>>UserRole role
-        - TimeStamp created_at
-        - TimeStamp updated_at
- }
+        - String passwordHash
+        - PlatformRole role
+    }
 
-    class Projects {
-        - UUID project_id
-        - String project_name
-        - String owner
-        - String source_location
-        - String source_branch
-        - String source_type
-        - String dockerfile_path
-        - String status
-        - timestamp created_at
-        - timestamp updated_at
- }
-
-    class Builds {
+    class Project {
         - UUID id
-        - UUID project_id
-        - String build_status
-        - String build_pod_name
-        - String image_tag
-        - String logs
-        - String error_message
-        - timestamp started_at
-        - timestamp completed_at
- }
+        - String name
+        - UUID teamId
+        - String k8sNamespace
+    }
 
-
-    class Deployments {
+    class Application {
         - UUID id
-        - UUID project_id
-        - UUID build_id
-        - String image_tag
-        - String service_url
-        - String cpu_limit
-        - String memory_limit
-        - bigint replicas
-        - bigint internal_port
-        - timestamp last_health_check
-        - timestamp deployed_at
-        - String status
- }
+        - String name
+        - UUID projectId
+        - String gitRepoUrl
+        - String buildBranch
+        - Integer containerPort
+    }
 
-    %% Enumerations
+    class Build {
+        - UUID id
+        - UUID applicationId
+        - BuildStatus status
+        - String imageTag
+        - Instant startTime
+    }
 
-    class UserRole {
-        <<enumeration>>
-        ADMIN
-        USER
- }
+    class Deployment {
+        - UUID id
+        - UUID applicationId
+        - String version
+        - DeploymentStatus status
+        - String ingressUrl
+    }
 
-
-    %% Relationships
-     User "1" -- "1..*" Projects : creates
-     Projects "1" --  "1..*" Builds : has
-     Builds "1" *-- "*" Deployments : contains
+    %% Cross-Module Connections (Handled via UUID in code)
+    User "1" ..> "1..*" Project
+    Project "1" ..> "1..*" Application
+    Application "1" ..> "1..*" Build
+    Build "1" ..> "1" Deployment
 
 
 

@@ -27,118 +27,95 @@ classDiagram
         +Instant joinedAt
     }
 
-    class PlatformRole {
-        <<enumeration>>
-        ADMIN
-        USER
-    }
-
-    class OrgRole {
-        <<enumeration>>
-        OWNER
-        MEMBER
-        VIEWER
-    }
-
     %% ============================================
-    %% PROJECTS & APPLICATIONS
+    %% PROJECT & APPLICATION (Cross-Module via UUID)
     %% ============================================
 
     class Project {
         +UUID id
-        +UUID organizationId
         +String name
-        +String slug
+        +UUID teamId
         +String k8sNamespace
-        +ProjectStatus status
         +Instant createdAt
+        +Instant updatedAt
     }
 
     class Application {
         +UUID id
-        +UUID projectId
         +String name
+        +UUID projectId
         +String gitRepoUrl
-        +String branch
+        +String buildBranch
         +String dockerfilePath
-        +int internalPort
+        +String startCommand
+        +Integer containerPort
         +Map~String,String~ envVars
-        +AppStatus status
-    }
-
-    class ProjectStatus {
-        <<enumeration>>
-        ACTIVE
-        SUSPENDED
-    }
-
-    class AppStatus {
-        <<enumeration>>
-        CREATED
-        BUILDING
-        DEPLOYED
-        FAILED
     }
 
     %% ============================================
-    %% BUILDS & DEPLOYMENTS
+    %% BUILD & DEPLOYMENT
     %% ============================================
 
     class Build {
         +UUID id
         +UUID applicationId
         +String commitHash
-        +String imageTag
-        +String kanikoPodName
         +BuildStatus status
-        +String errorMessage
-        +Instant startedAt
-        +Instant completedAt
+        +String imageTag
+        +String jobName
+        +Instant startTime
+        +Instant endTime
     }
 
     class Deployment {
         +UUID id
         +UUID applicationId
-        +UUID buildId
-        +String imageTag
-        +String ingressUrl
+        +String version
         +int replicas
         +DeploymentStatus status
+        +String ingressUrl
         +Instant deployedAt
+        +List~DeploymentStage~ stages
     }
+
+    class DeploymentStage {
+        +UUID id
+        +String name
+        +DeploymentStatus status
+        +Instant startTime
+        +Instant endTime
+    }
+
+    %% ============================================
+    %% ENUMERATIONS
+    %% ============================================
 
     class BuildStatus {
         <<enumeration>>
-        QUEUED
-        BUILDING
-        PUSHING
+        PENDING
+        RUNNING
         SUCCESS
         FAILED
+        CANCELLED
     }
 
     class DeploymentStatus {
         <<enumeration>>
-        PENDING
+        IN_PROGRESS
         HEALTHY
         UNHEALTHY
         FAILED
+        STOPPED
+        RESTARTING
     }
 
     %% ============================================
-    %% RELATIONSHIPS
+    %% RELATIONSHIPS (Architecture Perspective)
     %% ============================================
 
     Organization "1" --> "*" OrganizationMembership : has
     User "1" --> "*" OrganizationMembership : joins
-    Organization "1" --> "*" Project : owns
-    Project "1" --> "*" Application : contains
-    Application "1" --> "*" Build : triggers
-    Application "1" --> "0..1" Deployment : current
-    Build "1" --> "0..1" Deployment : produces
-
-    User ..> PlatformRole
-    OrganizationMembership ..> OrgRole
-    Project ..> ProjectStatus
-    Application ..> AppStatus
-    Build ..> BuildStatus
-    Deployment ..> DeploymentStatus
+    Project "1" ..> "1" Application : Cross-Module Link (UUID)
+    Application "1" ..> "1" Build : Cross-Module Link (UUID)
+    Build "1" ..> "1" Deployment : Logic Link
+    Deployment "1" *-- "*" DeploymentStage : contains
