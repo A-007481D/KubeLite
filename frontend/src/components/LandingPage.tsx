@@ -2,8 +2,8 @@ import React, { useRef } from "react";
 import { motion, useScroll, useSpring } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
-import CommandPalette from "./CommandPalette";
 import Navbar from "./Navbar";
+import LandingHero from "./LandingHero";
 
 export default function LandingPage() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -21,50 +21,7 @@ export default function LandingPage() {
     return (
         <div ref={containerRef} className="min-h-screen w-full bg-[#020202] text-white font-sans selection:bg-blue-500/30 overflow-x-hidden">
             <Navbar />
-
-            {/* ---------------------------------------------------------------------------
-          HERO: THE COMMAND SOURCE
-          --------------------------------------------------------------------------- */}
-            <section className="relative min-h-screen flex flex-col items-center justify-center px-6 overflow-hidden">
-                <div className="absolute inset-0 z-0 pointer-events-none">
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.03)_0%,transparent_70%)]" />
-                </div>
-
-                <motion.div 
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
-                    className="z-10 text-center mb-16"
-                >
-                    <h1 className="text-8xl md:text-[8rem] xl:text-[11rem] font-black tracking-tighter leading-[0.85] mb-8 selection:bg-white selection:text-black">
-                        Infrastructure <br /><span className="text-slate-900">unbound.</span>
-                    </h1>
-                    <p className="text-slate-500 text-lg md:text-2xl font-medium tracking-tight max-w-2xl mx-auto px-4 lowercase">
-                        The definitive engine for high-density applications. 
-                        One command, limitless orchestration.
-                    </p>
-                </motion.div>
-
-                <motion.div
-                    initial={{ scale: 0.98, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.3, duration: 1 }}
-                    className="z-10 w-full max-w-2xl px-4"
-                >
-                    <CommandPalette />
-                </motion.div>
-
-                {/* The Scroll Indicator */}
-                <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 0.3 }}
-                    transition={{ delay: 1, duration: 2 }}
-                    className="absolute bottom-12 flex flex-col items-center gap-4 text-[9px] font-black uppercase tracking-[0.4em] text-slate-800"
-                >
-                    <span>Scroll to Unfold</span>
-                    <div className="w-[1px] h-16 bg-gradient-to-b from-slate-900 to-transparent" />
-                </motion.div>
-            </section>
+            <LandingHero />
 
             {/* ---------------------------------------------------------------------------
           THE STREAM: ORGANIC WORKFLOW VISUALIZATION
