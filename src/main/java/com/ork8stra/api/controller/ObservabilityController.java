@@ -398,8 +398,8 @@ public class ObservabilityController {
         for (Project p : projects) {
             List<Application> apps = applicationService.getApplicationsByProject(p.getId());
             for (Application app : apps) {
-                List<Deployment> deployments = deploymentRepository.findByApplicationIdOrderByDeployedAtDesc(app.getId());
-                for (Deployment d : deployments) {
+                // Only return the single most recent deployment for each application to avoid confusing duplicates
+                deploymentRepository.findFirstByApplicationIdOrderByDeployedAtDesc(app.getId()).ifPresent(d -> {
                     result.add(FleetDeployment.builder()
                             .id(d.getId())
                             .appName(app.getName())
@@ -410,7 +410,7 @@ public class ObservabilityController {
                             .liveUrl(d.getIngressUrl())
                             .deployedAt(d.getDeployedAt() != null ? d.getDeployedAt().toString() : null)
                             .build());
-                }
+                });
             }
         }
 

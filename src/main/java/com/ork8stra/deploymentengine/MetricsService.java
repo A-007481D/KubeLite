@@ -184,8 +184,8 @@ public class MetricsService {
                     .memory(appStats.getMemoryUsageBytes())
                     .restartCount(restarts)
                     .status(appStats.getTotalPods() > 0
-                            ? (appStats.getRunningPods() == appStats.getTotalPods() ? "Healthy" : "Degraded")
-                            : "Stopped")
+                            ? (appStats.getRunningPods() == appStats.getTotalPods() ? "HEALTHY" : "DEGRADED")
+                            : "STOPPED")
                     .build());
         }
 

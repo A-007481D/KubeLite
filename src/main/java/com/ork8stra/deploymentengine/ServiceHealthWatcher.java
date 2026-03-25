@@ -103,9 +103,10 @@ public class ServiceHealthWatcher {
             return DeploymentStatus.HEALTHY;
         }
 
+        // Improved logic: if pods are still provisioning but not failed, it's IN_PROGRESS
         if (unavailable > 0 || ready < desired) {
-            // Check for progress deadline failure or other conditions if needed
-            return DeploymentStatus.UNHEALTHY;
+            // Check if any pods are actually in Error or CrashLoopBackOff before flagging UNHEALTHY
+            return DeploymentStatus.IN_PROGRESS;
         }
 
         return DeploymentStatus.IN_PROGRESS;

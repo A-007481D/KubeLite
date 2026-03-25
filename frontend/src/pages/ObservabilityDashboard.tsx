@@ -223,8 +223,14 @@ function OverviewTab({ token, org, headers }: any) {
                                         <td className="px-5 py-3 font-medium text-[#E3E3E3]">{app.appName}</td>
                                         <td className="px-5 py-3 text-[#888]">{app.projectName}</td>
                                         <td className="px-5 py-3 text-center">
-                                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${app.status === 'Healthy' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                                                {app.status === 'Healthy' ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />} {app.status}
+                                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                                app.status?.toUpperCase() === 'HEALTHY' ? 'bg-emerald-500/10 text-emerald-400' : 
+                                                app.status?.toUpperCase() === 'DEGRADED' || app.status?.toUpperCase() === 'IN_PROGRESS' ? 'bg-amber-500/10 text-amber-400' :
+                                                'bg-red-500/10 text-red-400'
+                                            }`}>
+                                                {app.status?.toUpperCase() === 'HEALTHY' ? <CheckCircle2 className="w-3 h-3" /> : 
+                                                 app.status?.toUpperCase() === 'DEGRADED' || app.status?.toUpperCase() === 'IN_PROGRESS' ? <AlertCircle className="w-3 h-3" /> :
+                                                 <XCircle className="w-3 h-3" />} {app.status}
                                             </span>
                                         </td>
                                         <td className="px-5 py-3 text-right font-mono text-[#E3E3E3]">{(app.cpu * 100).toFixed(1)}%</td>
@@ -461,9 +467,10 @@ function DeploymentsTab({ token, headers }: any) {
     if (isLoading) return <LoadingSpinner text="Loading deployments..." />;
 
     const statusColor = (s: string) => {
-        if (s === 'HEALTHY' || s === 'DEPLOYED') return 'bg-emerald-500/10 text-emerald-400';
-        if (s === 'IN_PROGRESS') return 'bg-blue-500/10 text-blue-400';
-        if (s === 'FAILED') return 'bg-red-500/10 text-red-400';
+        const status = s?.toUpperCase();
+        if (status === 'HEALTHY' || status === 'DEPLOYED' || status === 'SUCCESS') return 'bg-emerald-500/10 text-emerald-400';
+        if (status === 'IN_PROGRESS' || status === 'RESTARTING' || status === 'DEGRADED') return 'bg-amber-500/10 text-amber-400';
+        if (status === 'FAILED' || status === 'UNHEALTHY' || status === 'ERROR') return 'bg-red-500/10 text-red-400';
         return 'bg-[#333]/20 text-[#888]';
     };
 
@@ -489,7 +496,12 @@ function DeploymentsTab({ token, headers }: any) {
                                     <td className="px-5 py-3 font-mono text-[#AAA]">{d.imageTag}</td>
                                     <td className="px-5 py-3 text-center font-mono text-[#E3E3E3]">{d.replicas}</td>
                                     <td className="px-5 py-3 text-center">
-                                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusColor(d.status)}`}>{d.status}</span>
+                                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusColor(d.status)}`}>
+                                            {d.status?.toUpperCase() === 'HEALTHY' ? <CheckCircle2 className="w-3 h-3" /> : 
+                                             d.status?.toUpperCase() === 'IN_PROGRESS' || d.status?.toUpperCase() === 'RESTARTING' ? <Clock className="w-3 h-3 animate-spin-slow" /> :
+                                             <XCircle className="w-3 h-3" />}
+                                            {d.status}
+                                        </div>
                                     </td>
                                     <td className="px-5 py-3">
                                         {d.liveUrl ? <a href={d.liveUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline flex items-center gap-1 text-xs"><ExternalLink className="w-3 h-3" />{d.liveUrl}</a> : <span className="text-[#555]">—</span>}
