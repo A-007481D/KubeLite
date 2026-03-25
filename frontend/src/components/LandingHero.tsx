@@ -37,38 +37,38 @@ const LandingHero = () => {
                     Infrastructure Reborn
                 </div>
 
-                <h1 className="text-8xl md:text-[10rem] font-black tracking-[-0.08em] leading-[0.8] mb-12 bg-gradient-to-b from-white via-white to-white/30 bg-clip-text text-transparent">
+                <h1 className="text-6xl md:text-8xl font-black tracking-[-0.08em] leading-[1] mb-8 bg-gradient-to-b from-white via-white to-white/30 bg-clip-text text-transparent">
                     Ork8stra. <br />
                     <span className="text-white/20 italic">Unbound.</span>
                 </h1>
 
-                <p className="text-xl md:text-2xl text-slate-400 mb-16 max-w-3xl mx-auto leading-relaxed font-medium lowercase tracking-tight">
+                <p className="text-lg md:text-xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed font-medium lowercase tracking-tight">
                     The definitive engine for high-density architectures. 
                     Deterministic deployment at the absolute edge of performance.
                 </p>
 
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-32">
-                    <button className="group relative px-10 py-5 rounded-xl bg-white text-black font-bold text-lg hover:scale-105 transition-all shadow-2xl active:scale-95 overflow-hidden">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
+                    <button className="group relative px-8 py-4 rounded-xl bg-white text-black font-bold text-base hover:scale-105 transition-all shadow-2xl active:scale-95 overflow-hidden">
                         <div className="absolute inset-0 bg-blue-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                         <span className="relative flex items-center gap-3">
-                            See in Action <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />
+                            See in Action <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                         </span>
                     </button>
-                    <button className="group px-10 py-5 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-lg hover:bg-white/10 transition-all backdrop-blur-xl flex items-center gap-3 hover:border-white/20">
-                        <BookOpen size={22} className="text-slate-500 group-hover:text-white transition-colors" />
+                    <button className="group px-8 py-4 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-base hover:bg-white/10 transition-all backdrop-blur-xl flex items-center gap-3 hover:border-white/20">
+                        <BookOpen size={20} className="text-slate-500 group-hover:text-white transition-colors" />
                         Infrastructure Specs
                     </button>
                 </div>
 
                 {/* Floating Mockups: Tracker & Inbox */}
-                <div className="relative w-full max-w-5xl mx-auto h-[400px] pointer-events-none mt-20">
+                <div className="relative w-full max-w-4xl mx-auto h-[300px] pointer-events-none mt-16">
                     {/* Tracker Mockup */}
                     <motion.div 
-                        initial={{ opacity: 0, x: -100, y: 50 }}
+                        initial={{ opacity: 0, x: -50, y: 30 }}
                         whileInView={{ opacity: 1, x: 0, y: 0 }}
                         transition={{ duration: 1, delay: 0.5 }}
-                        className="absolute left-0 top-0 w-2/3 aspect-video glass-card rounded-3xl p-6 border-white/10 intense-glow z-20 overflow-hidden"
-                        style={{ '--glow-color': 'rgba(59, 130, 246, 0.2)' } as any}
+                        className="absolute left-0 top-0 w-[60%] aspect-video glass-card rounded-2xl p-4 border-white/10 intense-glow z-20 overflow-hidden"
+                        style={{ '--glow-color': 'rgba(59, 130, 246, 0.15)' } as any}
                     >
                         <div className="flex justify-between mb-8 border-b border-white/5 pb-4">
                             <span className="text-xs font-black uppercase tracking-widest text-white/40">Tracker</span>
@@ -97,11 +97,11 @@ const LandingHero = () => {
 
                     {/* Inbox Mockup */}
                     <motion.div 
-                        initial={{ opacity: 0, x: 100, y: 100 }}
-                        whileInView={{ opacity: 1, x: 0, y: 50 }}
+                        initial={{ opacity: 0, x: 50, y: 50 }}
+                        whileInView={{ opacity: 1, x: 0, y: 30 }}
                         transition={{ duration: 1, delay: 0.8 }}
-                        className="absolute right-0 top-0 w-1/3 aspect-[3/4] glass-card rounded-3xl p-6 border-white/10 intense-glow z-30 overflow-hidden"
-                        style={{ '--glow-color': 'rgba(168, 85, 247, 0.2)' } as any}
+                        className="absolute right-0 top-0 w-[30%] aspect-[3/4] glass-card rounded-2xl p-4 border-white/10 intense-glow z-30 overflow-hidden"
+                        style={{ '--glow-color': 'rgba(168, 85, 247, 0.15)' } as any}
                     >
                         <div className="mb-6 border-b border-white/5 pb-4">
                             <span className="text-xs font-black uppercase tracking-widest text-white/40">Inbox</span>

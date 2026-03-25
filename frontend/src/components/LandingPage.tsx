@@ -26,7 +26,7 @@ export default function LandingPage() {
             {/* ---------------------------------------------------------------------------
           THE STREAM: ORGANIC WORKFLOW VISUALIZATION
           --------------------------------------------------------------------------- */}
-            <section className="relative py-48 lg:py-80 px-6 z-10">
+            <section className="relative py-24 lg:py-32 px-6 z-10">
                 <div className="max-w-[1400px] mx-auto flex flex-col items-center">
                     
                     {/* The Path Stream (Reactive SVG) */}
@@ -37,7 +37,7 @@ export default function LandingPage() {
                         />
                     </div>
 
-                    <div className="space-y-[80vh] w-full">
+                    <div className="space-y-32 w-full">
                         
                         {/* Point 1: Integrate (The Terminal) */}
                         <StepSection
@@ -234,18 +234,18 @@ function StepSection({ title, description, side, mockup }: { title: string, desc
                     {mockup}
                 </motion.div>
                 <div className="text-center max-w-2xl px-6">
-                    <h3 className="text-6xl md:text-8xl font-black mb-10 tracking-tighter text-white">{title}</h3>
-                    <p className="text-slate-500 text-xl font-medium leading-relaxed lowercase tracking-tight">{description}</p>
+                    <h3 className="text-5xl md:text-6xl font-black mb-8 tracking-tighter text-white">{title}</h3>
+                    <p className="text-slate-500 text-lg font-medium leading-relaxed lowercase tracking-tight">{description}</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className={`flex flex-col items-center gap-16 lg:gap-0 lg:flex-row lg:justify-between w-full px-6`}>
-            <div className={`lg:w-[42%] ${side === 'left' ? 'lg:order-1 lg:text-right' : 'lg:order-2 lg:text-left'} space-y-10 order-2`}>
-                <h3 className="text-6xl md:text-8xl font-black tracking-tighter text-white">{title}</h3>
-                <p className="text-slate-500 text-xl font-medium leading-relaxed lowercase tracking-tight">
+        <div className={`flex flex-col items-center gap-12 lg:gap-0 lg:flex-row lg:justify-between w-full px-6`}>
+            <div className={`lg:w-[45%] ${side === 'left' ? 'lg:order-1 lg:text-right' : 'lg:order-2 lg:text-left'} space-y-8 order-2`}>
+                <h3 className="text-5xl md:text-6xl font-black tracking-tighter text-white">{title}</h3>
+                <p className="text-slate-500 text-lg font-medium leading-relaxed lowercase tracking-tight">
                     {description}
                 </p>
                 <div className={`flex ${side === 'left' ? 'lg:justify-end' : 'lg:justify-start'}`}>
