@@ -1,32 +1,32 @@
-# KubeLite: The Infrastructure Stream Workflow
+# KubeLite: Deployment Workflow
 
-This diagram visualizes the high-level user journey and the underlying technical synchronization that powers the "Click. Deploy. Done." experience.
+This diagram visualizes the technical synchronization between core platform layers during the application lifecycle.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant D as Developer (Command Palette)
-    participant I as Ingest (API Layer)
-    participant F as Forge (Build Engine)
-    participant P as Pulse (Live Edge)
+    participant D as Developer
+    participant A as API Layer
+    participant B as Build Engine
+    participant R as Runtime Cluster
 
-    Note over D,I: STAGE 1: INGEST
-    D->>I: git push / deploy (intent)
-    I->>I: Resolve Dependencies & Runtime
+    Note over D,A: PHASE 1: INITIALIZATION
+    D->>A: Deployment Request
+    A->>A: Dependency Resolution
 
-    Note over I,F: STAGE 2: FORGE
-    I->>F: Trigger Build (Tekton/Kaniko)
-    F->>F: Package Application
-    F->>F: Optimize Image Layers
-    F->>P: Orchestrate Deployment (K8s)
+    Note over A,B: PHASE 2: PACKAGING
+    A->>B: Execute Build Workflow
+    B->>B: Containerize Application
+    B->>B: Layer Optimization
+    B->>R: Orchestrate Resources
 
-    Note over F,P: STAGE 3: PULSE
-    P->>P: Traffic Ingress Warm-up
-    P->>P: Global DNS Propagation
-    P-->>D: "Success" Pulse (Live URL)
+    Note over B,R: PHASE 3: EXECUTION
+    R->>R: Service Ingress Warm-up
+    R->>R: Traffic Routing
+    R-->>D: Deployment Complete (Live Endpoint)
 ```
 
-## Interaction Design
-1.  **Ingest**: Focused on low-friction entry via the Command Palette.
-2.  **Forge**: Completely automated, high-density build process.
-3.  **Pulse**: Continuous health monitoring and traffic routing.
+## Functional Architecture
+1.  **API Layer**: Manages authentication, orchestration intent, and state management.
+2.  **Build Engine**: Executes isolated, ephemeral build environments for secure packaging.
+3.  **Runtime Cluster**: Provides high-availability hosting and traffic management at the edge.

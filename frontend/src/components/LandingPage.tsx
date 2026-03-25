@@ -81,9 +81,9 @@ export default function LandingPage() {
 
                     <div className="space-y-[60vh] lg:space-y-[80vh] w-full">
                         
-                        {/* Point 1: Ingest (The Terminal) */}
+                        {/* Point 1: Integrate (The Terminal) */}
                         <StepSection
-                            title="Ingest"
+                            title="Integrate"
                             description="Connect your repository. We monitor intent, not just diffs. Instant recognition of builds, runtimes, and dependencies."
                             side="left"
                             mockup={
@@ -105,16 +105,16 @@ export default function LandingPage() {
                                             <span className="text-purple-400">kubelite</span>
                                             <span className="text-slate-300 animate-pulse">Detecting runtime: Node.js (v20)</span>
                                         </div>
-                                        <div className="text-slate-500 mt-4 opacity-50 italic">// initializing stream connection...</div>
+                                        <div className="text-slate-500 mt-4 opacity-50 italic">// initializing platform connection...</div>
                                     </div>
                                     <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-blue-500/10 to-transparent pointer-events-none" />
                                 </div>
                             }
                         />
 
-                        {/* Point 2: Forge (The Crystal) */}
+                        {/* Point 2: Build (The Crystal) */}
                         <StepSection
-                            title="Forge"
+                            title="Build"
                             description="Infrastructure at a molecular level. We package your source into optimized, immutable image layers ready for global distribution."
                             side="right"
                             mockup={
@@ -145,9 +145,9 @@ export default function LandingPage() {
                             }
                         />
 
-                        {/* Point 3: Pulse (The Global Map) */}
+                        {/* Point 3: Deploy (The Global Map) */}
                         <StepSection
-                            title="Pulse"
+                            title="Deploy"
                             description="Production is a state of being, not a destination. Your apps live on the edge, responding with sub-millisecond latency worldwide."
                             side="center"
                             mockup={
