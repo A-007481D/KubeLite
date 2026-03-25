@@ -4,7 +4,7 @@ import {
     Activity, Server, Cpu, AlertTriangle, CheckCircle2, 
     XCircle, Clock, ArrowUpRight, ArrowDownRight, RotateCcw,
     Shield, Globe, Lock, Container, Gauge,
-    ExternalLink, Search, RefreshCw, Plus, Filter, Layout, Box
+    ExternalLink, Search, RefreshCw, Plus, Filter, Layout, Box, AlertCircle
 } from "lucide-react";
 import type { Organization, Team, Project } from "../types/index";
 import {
@@ -584,8 +584,14 @@ function ResourceMetricsTab({ token, org, headers }: any) {
                                         <td className="px-5 py-3 text-center font-mono text-[#E3E3E3]">{app.pods || 0}</td>
                                         <td className="px-5 py-3 text-center"><span className={`font-mono ${(app.restartCount || 0) > 0 ? 'text-amber-400' : 'text-[#888]'}`}>{app.restartCount || 0}</span></td>
                                         <td className="px-5 py-3 text-center">
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${app.status === 'Healthy' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                                                {app.status === 'Healthy' ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />} {app.status}
+                                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                                app.status?.toUpperCase() === 'HEALTHY' ? 'bg-emerald-500/10 text-emerald-400' : 
+                                                app.status?.toUpperCase() === 'DEGRADED' || app.status?.toUpperCase() === 'IN_PROGRESS' ? 'bg-amber-500/10 text-amber-400' :
+                                                'bg-red-500/10 text-red-400'
+                                            }`}>
+                                                {app.status?.toUpperCase() === 'HEALTHY' ? <CheckCircle2 className="w-3 h-3" /> : 
+                                                 app.status?.toUpperCase() === 'DEGRADED' || app.status?.toUpperCase() === 'IN_PROGRESS' ? <AlertCircle className="w-3 h-3" /> :
+                                                 <XCircle className="w-3 h-3" />} {app.status}
                                             </span>
                                         </td>
                                     </tr>

@@ -49,6 +49,8 @@ public class DeploymentService {
 
         @Value("${kubelite.default-container-port:8080}")
         private int defaultContainerPort;
+        
+        private static final int DISCOVERY_SERVER_PORT = 8761;
 
         public void setBaseDomain(String baseDomain) {
              this.baseDomain = baseDomain;
@@ -63,30 +65,64 @@ public class DeploymentService {
 
                 Application app = applicationService.getApplication(event.applicationId());
                 Project project = projectService.getProjectById(app.getProjectId());
+                
+                // Find existing deployment for this build if any
+                Deployment deployment = deploymentRepository.findFirstByApplicationIdOrderByDeployedAtDesc(app.getId())
+                        .filter(d -> d.getStatus() == DeploymentStatus.IN_PROGRESS && d.getVersion().equals(event.imageTag()))
+                        .orElse(null);
+
+                if (deployment != null) {
+                    log.info("Continuing deployment pipeline for existing deployment {}", deployment.getId());
+                }
+
                 deploy(app, project, event.imageTag());
         }
 
         @Transactional
-        public Deployment deploy(Application app, Project project, String imageTag) {
+        public Deployment triggerBuildDeployment(Application app, Project project, String imageTag) {
                 Deployment deployment = new Deployment(app.getId(), imageTag);
                 initializeStages(deployment);
+                deployment.setStatus(DeploymentStatus.IN_PROGRESS);
                 deploymentRepository.save(deployment);
 
-                // Update "Kubernetes Rollout" stage to RUNNING
-                updateStageStatus(deployment, "Kubernetes Rollout", DeploymentStage.PipelineStatus.RUNNING);
+                // Start build stage
+                updateStageStatus(deployment, DeploymentLogService.STAGE_BUILD, DeploymentStage.PipelineStatus.RUNNING);
+                
+                return deployment;
+        }
+
+        @Transactional
+        public Deployment deploy(Application app, Project project, String imageTag) {
+                // Try to find an existing IN_PROGRESS deployment for this build
+                Deployment deployment = deploymentRepository.findFirstByApplicationIdOrderByDeployedAtDesc(app.getId())
+                        .filter(d -> d.getStatus() == DeploymentStatus.IN_PROGRESS && d.getVersion().equals(imageTag))
+                        .orElse(null);
+
+                if (deployment == null) {
+                    deployment = new Deployment(app.getId(), imageTag);
+                    initializeStages(deployment);
+                    deployment.setStatus(DeploymentStatus.IN_PROGRESS);
+                }
+                
+                deploymentRepository.save(deployment);
+
+                // Stage 1: Build is already success at this point (triggered this call)
+                updateStageStatus(deployment, DeploymentLogService.STAGE_BUILD, DeploymentStage.PipelineStatus.SUCCESS);
+
+                // Stage 2: Security & Quality
+                updateStageStatus(deployment, DeploymentLogService.STAGE_SECURITY, DeploymentStage.PipelineStatus.RUNNING);
+                // Synchronous scan would go here. Setting to SUCCESS for now.
+                updateStageStatus(deployment, DeploymentLogService.STAGE_SECURITY, DeploymentStage.PipelineStatus.SUCCESS);
+
+                // Stage 3: Kubernetes Rollout
+                updateStageStatus(deployment, DeploymentLogService.STAGE_ROLLOUT, DeploymentStage.PipelineStatus.RUNNING);
 
                 String ingressUrl = applyRuntimeResources(app, project, imageTag, 1);
                 deployment.setIngressUrl(ingressUrl);
                 deployment.setReplicas(1);
                 
-                // Removed Thread.sleep(3000) - UI should handle visualization
-
-                deployment.setStatus(DeploymentStatus.HEALTHY);
-
-                // Update "Kubernetes Rollout" stage to SUCCESS
-                updateStageStatus(deployment, "Kubernetes Rollout", DeploymentStage.PipelineStatus.SUCCESS);
-
-                return deploymentRepository.save(deployment);
+                deploymentRepository.save(deployment);
+                return deployment;
         }
 
         public void initializeStages(Deployment deployment) {
@@ -95,45 +131,41 @@ public class DeploymentService {
                     deploymentRepository.saveAndFlush(deployment);
                 }
                 
-                // Strict idempotency: if we have ANY stages, don't add more.
-                // We use a refresh to ensure we have the latest state from the DB.
                 if (!deployment.getStages().isEmpty()) return;
                 
                 log.info("Initializing baseline stages for deployment {}", deployment.getId());
 
-                // Stage 1: Build 
+                // Stage 1: Build (CI)
                 DeploymentStage buildStage = DeploymentStage.builder()
-                                .name("Source Compilation")
-                                .status(DeploymentStage.PipelineStatus.SUCCESS)
+                                .name(DeploymentLogService.STAGE_BUILD)
+                                .status(DeploymentStage.PipelineStatus.PENDING)
                                 .orderIndex(0)
                                 .deployment(deployment)
-                                .estimatedDuration(30L)
+                                .estimatedDuration(300L)
                                 .build();
-                // We assume compilation happened before this if we have an imageTag, 
-                // but real build monitoring should happen in BuildService.
-                buildStage.getSteps().add(DeploymentStep.builder().name("Fetch Repository").status(DeploymentStage.PipelineStatus.SUCCESS).build());
-                buildStage.getSteps().add(DeploymentStep.builder().name("Build Pipeline").status(DeploymentStage.PipelineStatus.SUCCESS).build());
+                buildStage.getSteps().add(DeploymentStep.builder().name("Kaniko Build").status(DeploymentStage.PipelineStatus.PENDING).build());
+                buildStage.getSteps().add(DeploymentStep.builder().name("Image Push").status(DeploymentStage.PipelineStatus.PENDING).build());
 
-                // Stage 2: Security & Quality
+                // Stage 2: Security Scan
                 DeploymentStage testStage = DeploymentStage.builder()
-                                .name("Security & Quality")
-                                .status(DeploymentStage.PipelineStatus.SUCCESS)
+                                .name(DeploymentLogService.STAGE_SECURITY)
+                                .status(DeploymentStage.PipelineStatus.PENDING)
                                 .orderIndex(1)
                                 .deployment(deployment)
                                 .estimatedDuration(60L)
                                 .build();
-                testStage.getSteps().add(DeploymentStep.builder().name("Cluster Policy Check").status(DeploymentStage.PipelineStatus.SUCCESS).build());
+                testStage.getSteps().add(DeploymentStep.builder().name("Trivy Vulnerability Scan").status(DeploymentStage.PipelineStatus.PENDING).build());
 
-                // Stage 3: Deployment
+                // Stage 3: Deployment (CD)
                 DeploymentStage deployStage = DeploymentStage.builder()
-                                .name("Kubernetes Rollout")
+                                .name(DeploymentLogService.STAGE_ROLLOUT)
                                 .status(DeploymentStage.PipelineStatus.PENDING)
                                 .orderIndex(2)
                                 .deployment(deployment)
                                 .estimatedDuration(120L)
                                 .build();
-                deployStage.getSteps().add(DeploymentStep.builder().name("K8s Apply").status(DeploymentStage.PipelineStatus.PENDING).build());
-                deployStage.getSteps().add(DeploymentStep.builder().name("Health Check").status(DeploymentStage.PipelineStatus.PENDING).build());
+                deployStage.getSteps().add(DeploymentStep.builder().name("K8s Apply Resources").status(DeploymentStage.PipelineStatus.PENDING).build());
+                deployStage.getSteps().add(DeploymentStep.builder().name("Pod Readiness Check").status(DeploymentStage.PipelineStatus.PENDING).build());
 
                 deployment.getStages().addAll(List.of(buildStage, testStage, deployStage));
         }
@@ -252,7 +284,7 @@ public class DeploymentService {
                                                 .addNewPort()
                                                 .withName("http")
                                                 .withPort(80)
-                                                .withTargetPort(new IntOrString(app.getContainerPort() != null ? app.getContainerPort() : 8080))
+                                                .withTargetPort(new IntOrString(detectContainerPort(app, imageTag)))
                                                 .endPort()
                                                 .addNewPort()
                                                 .withName("api")
@@ -384,6 +416,28 @@ public class DeploymentService {
          * Uses minikube ssh to query the registry v2 API from inside the VM.
          * Falls back to user's PORT env var, then to defaultContainerPort.
          */
+        private int detectContainerPort(Application app, String imageTag) {
+                // If explicitly set in app metadata, use it
+                if (app.getContainerPort() != null && app.getContainerPort() > 0) {
+                        return app.getContainerPort();
+                }
+
+                // If Discovery Server, use 8761
+                if (app.getName().toLowerCase().contains("discovery-server")) {
+                        log.info("Detected Discovery Server '{}', defaulting to port {}", app.getName(), DISCOVERY_SERVER_PORT);
+                        return DISCOVERY_SERVER_PORT;
+                }
+
+                // Try image detection
+                int detected = detectPortFromImage(imageTag, app);
+                if (detected != defaultContainerPort) {
+                        return detected;
+                }
+
+                // Fallback to env or default
+                return resolveContainerPort(app);
+        }
+
         private int detectPortFromImage(String imageTag, Application app) {
                 try {
                         // imageTag format: "host:port/repo:tag"

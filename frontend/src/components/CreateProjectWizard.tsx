@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, CheckCircle, FolderGit2, Upload, Plus, ChevronRight, Loader2, Search, Layers, Zap, Box, Server, Layout, Database, Cpu } from "lucide-react";
+import api from "../api";
 
 interface WizardData {
     // Step 0: Project Context
@@ -239,11 +240,8 @@ export default function CreateServiceWizard({
         if (!teamId) return;
         setLoadingProjects(true);
         try {
-            const res = await fetch(`/api/v1/projects?teamId=${teamId}`, { headers: { Authorization: `Bearer ${token}` } });
-            if (res.ok) {
-                const p = await res.json();
-                setExistingProjects(p || []);
-            }
+            const res = await api.get(`/projects?teamId=${teamId}`);
+            setExistingProjects(res.data || []);
         } catch (e) {
             console.error(e);
         } finally {
@@ -255,43 +253,31 @@ export default function CreateServiceWizard({
 
     const checkGitHubConnection = useCallback(async () => {
         try {
-            const res = await fetch("/api/v1/github/connection", { headers: { Authorization: `Bearer ${token}` } });
-            if (res.ok) {
-                const d = await res.json();
-                setGithubConnection(d);
-            }
+            const res = await api.get("/github/connection");
+            setGithubConnection(res.data);
         } catch (e) { console.error(e); }
     }, [token]);
 
     const fetchRepos = useCallback(async () => {
         setLoadingRepos(true);
         try {
-            const res = await fetch("/api/v1/github/repos", { headers: { Authorization: `Bearer ${token}` } });
-            if (res.ok) {
-                const d = await res.json();
-                setRepos(d || []);
-            }
+            const res = await api.get("/github/repos");
+            setRepos(res.data || []);
         } catch (e) { console.error(e); } finally { setLoadingRepos(false); }
     }, [token]);
 
     const fetchBranches = useCallback(async (owner: string, repo: string) => {
         setLoadingBranches(true);
         try {
-            const res = await fetch(`/api/v1/github/branches?owner=${owner}&repo=${repo}`, { headers: { Authorization: `Bearer ${token}` } });
-            if (res.ok) {
-                const d = await res.json();
-                setBranches(d || []);
-            }
+            const res = await api.get(`/github/branches?owner=${owner}&repo=${repo}`);
+            setBranches(res.data || []);
         } catch (e) { console.error(e); } finally { setLoadingBranches(false); }
     }, [token]);
 
     const handleGitHubConnect = async () => {
         try {
-            const res = await fetch("/api/v1/github/auth", { headers: { Authorization: `Bearer ${token}` } });
-            if (res.ok) {
-                const d = await res.json();
-                window.open(d.url, "_blank", "width=600,height=700");
-            }
+            const res = await api.get("/github/auth");
+            window.open(res.data.url, "_blank", "width=600,height=700");
         } catch (e) { console.error(e); }
     };
 
@@ -302,15 +288,9 @@ export default function CreateServiceWizard({
             if (event.data.type === "GITHUB_CONNECTED") {
                 const { access_token, username } = event.data.data;
                 try {
-                    const res = await fetch("/api/v1/github/connect", {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                        body: JSON.stringify({ access_token, username }),
-                    });
-                    if (res.ok) {
-                        setGithubConnection({ connected: true, username });
-                        fetchRepos();
-                    }
+                    const res = await api.post("/github/connect", { access_token, username });
+                    setGithubConnection({ connected: true, username });
+                    fetchRepos();
                 } catch (e) { console.error(e); }
             }
         };
@@ -333,16 +313,9 @@ export default function CreateServiceWizard({
         try {
             let finalProjectId = data.projectId;
 
-            // 1. Create Project if needed
             if (data.isNewProject) {
-                const pRes = await fetch("/api/v1/projects", {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ name: data.newProjectName, team_id: teamId })
-                });
-                if (!pRes.ok) throw new Error("Failed to create project");
-                const pData = await pRes.json();
-                finalProjectId = pData.id;
+                const pRes = await api.post("/projects", { name: data.newProjectName, team_id: teamId });
+                finalProjectId = pRes.data.id;
             }
 
             if (!finalProjectId) throw new Error("No Project ID");
@@ -358,19 +331,13 @@ export default function CreateServiceWizard({
                 envVarMap.PORT = selectedPort;
             }
 
-            const sRes = await fetch(`/api/v1/projects/${finalProjectId}/apps`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: data.serviceName,
-                    gitRepoUrl: data.repository,
-                    buildBranch: data.branch,
-                    dockerfilePath: data.buildType === "dockerfile" ? (data.dockerfilePath || "Dockerfile") : null,
-                    envVars: envVarMap
-                }),
+            await api.post(`/projects/${finalProjectId}/apps`, {
+                name: data.serviceName,
+                gitRepoUrl: data.repository,
+                buildBranch: data.branch,
+                dockerfilePath: data.buildType === "dockerfile" ? (data.dockerfilePath || "Dockerfile") : null,
+                envVars: envVarMap
             });
-
-            if (!sRes.ok) throw new Error("Failed to create service");
 
             onComplete();
             onClose();

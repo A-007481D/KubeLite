@@ -3,6 +3,8 @@ package com.ork8stra.api.controller;
 import com.ork8stra.api.dto.BuildResponse;
 import com.ork8stra.applicationmanagement.Application;
 import com.ork8stra.applicationmanagement.ApplicationService;
+import com.ork8stra.deploymentengine.Deployment;
+import com.ork8stra.deploymentengine.DeploymentService;
 import com.ork8stra.buildengine.Build;
 import com.ork8stra.buildengine.BuildLogService;
 import com.ork8stra.buildengine.BuildService;
@@ -29,6 +31,7 @@ public class BuildController {
     private final ProjectService projectService;
     private final BuildService buildService;
     private final BuildLogService buildLogService;
+    private final DeploymentService deploymentService;
 
     @Value("${kubelite.image.repository:ttl.sh}")
     private String imageRepository;
@@ -46,9 +49,10 @@ public class BuildController {
         log.info("Triggering build for app '{}' into namespace '{}' targeting image '{}'",
                 app.getName(), project.getK8sNamespace(), imageTag);
 
+        Deployment deployment = deploymentService.triggerBuildDeployment(app, project, imageTag);
         Build build = buildService.triggerBuild(app, project, imageTag);
 
-        return ResponseEntity.accepted().body(BuildResponse.from(build));
+        return ResponseEntity.accepted().body(BuildResponse.from(build, deployment.getId()));
     }
 
     @GetMapping

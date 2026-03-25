@@ -21,6 +21,7 @@ public class BuildResponse {
     private String jobName;
     private Instant startTime;
     private Instant endTime;
+    private java.util.UUID deploymentId;
 
     public static BuildResponse from(Build build) {
         return BuildResponse.builder()
@@ -32,5 +33,11 @@ public class BuildResponse {
                 .startTime(build.getStartTime())
                 .endTime(build.getEndTime())
                 .build();
+    }
+
+    public static BuildResponse from(Build build, java.util.UUID deploymentId) {
+        BuildResponse resp = from(build);
+        resp.setDeploymentId(deploymentId);
+        return resp;
     }
 }

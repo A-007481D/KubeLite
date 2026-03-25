@@ -28,7 +28,7 @@ export default function LogViewer({
     useEffect(() => {
         if (!deploymentId || !appId || appId === 'undefined' || appId === 'null') return;
 
-        setLogs((prev: string[]) => [...prev, `Connecting to log stream${stageId ? ` for stage ${stageId}` : ''}...`]);
+        setLogs((prev: string[]) => [...prev, `Connecting to real-time pipeline telemetry...`]);
 
         const controller = new AbortController();
         const fetchLogs = async () => {

@@ -44,8 +44,10 @@ const mapDeploymentStatusToUi = (status?: string | null): Service['status'] => {
         case 'SUCCESS':
         case 'ALIVE':
         case 'COMPLETED':
+        case 'READY':
             return 'live';
         case 'STOPPED': return 'stopped';
+        case 'DEGRADED':
         case 'RESTARTING':
         case 'IN_PROGRESS': return 'restarting';
         case 'FAILED':

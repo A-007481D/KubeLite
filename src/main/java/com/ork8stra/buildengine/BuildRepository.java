@@ -6,4 +6,5 @@ import java.util.UUID;
 
 public interface BuildRepository extends JpaRepository<Build, UUID> {
     List<Build> findByApplicationId(UUID applicationId);
+    java.util.Optional<Build> findFirstByApplicationIdOrderByStartTimeDesc(UUID applicationId);
 }

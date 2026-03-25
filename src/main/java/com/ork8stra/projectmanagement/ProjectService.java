@@ -45,8 +45,8 @@ public class ProjectService {
         try {
             com.ork8stra.teammanagement.Team team = teamRepository.findById(teamId).orElse(null);
             if (team != null) {
-                String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
-                com.ork8stra.user.User currentUser = userRepository.findByEmailIgnoreCase(email).orElse(null);
+                String principalName = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+                com.ork8stra.user.User currentUser = userRepository.findByUsernameIgnoreCase(principalName).orElse(null);
                 
                 if (currentUser != null) {
                     auditLogRepository.save(com.ork8stra.audit.AuditLog.builder()
@@ -91,15 +91,20 @@ public class ProjectService {
         org.slf4j.LoggerFactory.getLogger(ProjectService.class)
                 .info("Namespace '{}' missing; creating it", namespace);
         
-        kubernetesClient.namespaces().resource(
-                new NamespaceBuilder()
-                        .withNewMetadata()
-                        .withName(namespace)
-                        .addToLabels("managed-by", "ork8stra")
-                        .addToLabels("project-id", project.getId().toString())
-                        .endMetadata()
-                        .build())
-                .createOrReplace();
+        try {
+            kubernetesClient.namespaces().resource(
+                    new NamespaceBuilder()
+                            .withNewMetadata()
+                            .withName(namespace)
+                            .addToLabels("managed-by", "ork8stra")
+                            .addToLabels("project-id", project.getId().toString())
+                            .endMetadata()
+                            .build())
+                    .createOrReplace();
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(ProjectService.class)
+                    .warn("Failed to ensure K8s namespace for project '{}': {}", project.getName(), e.getMessage());
+        }
     }
 
     @Transactional
