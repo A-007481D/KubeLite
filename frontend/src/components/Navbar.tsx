@@ -1,9 +1,4 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, ChevronDown } from "lucide-react";
-import { Link } from "react-router-dom";
+import logo from "../assets/logo.png";
 
 export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
@@ -30,13 +25,8 @@ export default function Navbar() {
                 <div className="max-w-[1400px] mx-auto px-10 h-full flex items-center justify-between">
 
                     {/* LOGO */}
-                    <Link to="/" className="flex items-center gap-4 cursor-pointer group">
-                        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-2xl shadow-blue-500/20 group-hover:shadow-blue-500/40 transition-all group-hover:scale-105 active:scale-95">
-                            O
-                        </div>
-                        <span className="text-2xl font-black tracking-tighter text-white">
-                            ork8stra
-                        </span>
+                    <Link to="/" className="flex items-center cursor-pointer group">
+                        <img src={logo} alt="Ork8stra Logo" className="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
                     </Link>
 
                     {/* DESKTOP LINKS */}
