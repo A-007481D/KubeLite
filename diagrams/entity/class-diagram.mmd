@@ -2,34 +2,59 @@ classDiagram
     direction TB
 
     %% ============================================
-    %% ORGANIZATION & USERS
+    %% ORGANIZATION & USERS (IDENTITY MODULE)
     %% ============================================
+
+    class User {
+        +UUID id
+        +String username
+        +String email
+        +String passwordHash
+        +Set~PlatformRole~ roles
+        +String displayName
+        +String avatarUrl
+        +String githubUsername
+        +boolean enabled
+        +Instant createdAt
+        +Instant updatedAt
+    }
 
     class Organization {
         +UUID id
         +String name
         +String slug
+        +UUID ownerId
         +Instant createdAt
     }
 
-    class User {
+    class OrgMember {
         +UUID id
-        +String email
-        +String passwordHash
-        +PlatformRole platformRole
-        +Instant createdAt
-    }
-
-    class OrganizationMembership {
         +UUID userId
         +UUID organizationId
         +OrgRole role
+        +List~UUID~ policyIds
         +Instant joinedAt
     }
 
     %% ============================================
-    %% PROJECT & APPLICATION (Cross-Module via UUID)
+    %% PROJECTS & TEAMS (GOVERNANCE MODULE)
     %% ============================================
+
+    class Team {
+        +UUID id
+        +String name
+        +UUID organizationId
+        +Instant createdAt
+    }
+
+    class TeamMember {
+        +UUID id
+        +UUID userId
+        +UUID teamId
+        +String role
+        +List~UUID~ policyIds
+        +Instant joinedAt
+    }
 
     class Project {
         +UUID id
@@ -39,6 +64,10 @@ classDiagram
         +Instant createdAt
         +Instant updatedAt
     }
+
+    %% ============================================
+    %% APPLICATIONS & BUILDING (MANAGEMENT MODULE)
+    %% ============================================
 
     class Application {
         +UUID id
@@ -52,9 +81,12 @@ classDiagram
         +Map~String,String~ envVars
     }
 
-    %% ============================================
-    %% BUILD & DEPLOYMENT
-    %% ============================================
+    class ServiceConnection {
+        +UUID id
+        +UUID sourceAppId
+        +UUID targetAppId
+        +String metadata
+    }
 
     class Build {
         +UUID id
@@ -67,6 +99,10 @@ classDiagram
         +Instant endTime
     }
 
+    %% ============================================
+    %% DEPLOYMENTS & RUNTIME (ORCHESTRATION MODULE)
+    %% ============================================
+
     class Deployment {
         +UUID id
         +UUID applicationId
@@ -75,47 +111,55 @@ classDiagram
         +DeploymentStatus status
         +String ingressUrl
         +Instant deployedAt
-        +List~DeploymentStage~ stages
     }
 
     class DeploymentStage {
         +UUID id
         +String name
-        +DeploymentStatus status
+        +PipelineStatus status
+        +int orderIndex
+        +Long estimatedDuration
         +Instant startTime
         +Instant endTime
     }
 
-    %% ============================================
-    %% ENUMERATIONS
-    %% ============================================
-
-    class BuildStatus {
-        <<enumeration>>
-        PENDING
-        RUNNING
-        SUCCESS
-        FAILED
-        CANCELLED
-    }
-
-    class DeploymentStatus {
-        <<enumeration>>
-        IN_PROGRESS
-        HEALTHY
-        UNHEALTHY
-        FAILED
-        STOPPED
-        RESTARTING
+    class DeploymentStep {
+        +UUID id
+        +String name
+        +PipelineStatus status
+        +String logSnippet
+        +Instant timestamp
     }
 
     %% ============================================
-    %% RELATIONSHIPS (Architecture Perspective)
+    %% STRICT RELATIONSHIPS & MULTIPLICITIES
     %% ============================================
 
-    Organization "1" --> "*" OrganizationMembership : has
-    User "1" --> "*" OrganizationMembership : joins
-    Project "1" ..> "1" Application : Cross-Module Link (UUID)
-    Application "1" ..> "1" Build : Cross-Module Link (UUID)
-    Build "1" ..> "1" Deployment : Logic Link
-    Deployment "1" *-- "*" DeploymentStage : contains
+    User "1" -- "*" OrgMember : is member of
+    Organization "1" -- "*" OrgMember : contains
+    
+    Organization "1" -- "*" Team : owns
+    
+    User "1" -- "*" TeamMember : is member of
+    Team "1" -- "*" TeamMember : contains
+    
+    Team "1" -- "*" Project : manages
+    Project "1" -- "*" Application : hosts
+
+    Application "1" -- "*" ServiceConnection : source
+    Application "1" -- "*" ServiceConnection : target
+
+    Application "1" -- "*" Build : triggers
+    Application "1" -- "0..1" Deployment : has current
+    
+    Build "1" -- "0..1" Deployment : produces
+    
+    Deployment "1" *-- "*" DeploymentStage : composition
+    DeploymentStage "1" *-- "*" DeploymentStep : composition
+
+    %% Metadata Enums
+    class PlatformRole { <<enumeration>> ADMIN, USER }
+    class OrgRole { <<enumeration>> OWNER, MEMBER, VIEWER }
+    class BuildStatus { <<enumeration>> PENDING, RUNNING, SUCCESS, FAILED, CANCELLED }
+    class DeploymentStatus { <<enumeration>> IN_PROGRESS, HEALTHY, UNHEALTHY, FAILED, STOPPED, RESTARTING }
+    class PipelineStatus { <<enumeration>> PENDING, RUNNING, SUCCESS, FAILED, SKIPPED }

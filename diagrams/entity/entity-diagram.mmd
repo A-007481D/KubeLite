@@ -3,9 +3,36 @@ classDiagram
 
     class User {
         - UUID id
+        - String username
         - String email
         - String passwordHash
-        - PlatformRole role
+    }
+
+    class Organization {
+        - UUID id
+        - String name
+        - String slug
+        - UUID ownerId
+    }
+
+    class OrgMember {
+        - UUID id
+        - UUID userId
+        - UUID organizationId
+        - OrgRole role
+    }
+
+    class Team {
+        - UUID id
+        - String name
+        - UUID organizationId
+    }
+
+    class TeamMember {
+        - UUID id
+        - UUID userId
+        - UUID teamId
+        - String role
     }
 
     class Project {
@@ -29,7 +56,6 @@ classDiagram
         - UUID applicationId
         - BuildStatus status
         - String imageTag
-        - Instant startTime
     }
 
     class Deployment {
@@ -40,11 +66,25 @@ classDiagram
         - String ingressUrl
     }
 
-    %% Cross-Module Connections (Handled via UUID in code)
-    User "1" ..> "1..*" Project
-    Project "1" ..> "1..*" Application
-    Application "1" ..> "1..*" Build
-    Build "1" ..> "1" Deployment
+    class DeploymentStage {
+        - UUID id
+        - UUID deploymentId
+        - String name
+        - PipelineStatus status
+    }
+
+    %% Multiplicities based on logically defined relationships
+    User "1" -- "*" OrgMember
+    Organization "1" -- "*" OrgMember
+    Organization "1" -- "*" Team
+    Team "1" -- "*" TeamMember
+    User "1" -- "*" TeamMember
+    Team "1" -- "*" Project
+    Project "1" -- "*" Application
+    Application "1" -- "*" Build
+    Application "1" -- "0..1" Deployment
+    Build "1" -- "0..1" Deployment
+    Deployment "1" *-- "*" DeploymentStage
 
 
 
