@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
-import logo from "../assets/logo.png";
+import Ork8straLogo from "./Ork8straLogo";
 
 export default function Navbar() {
     const [scrolled, setScrolled] = useState(false);
@@ -31,16 +31,16 @@ export default function Navbar() {
                 <div className="max-w-[1400px] mx-auto px-10 h-full flex items-center justify-between">
 
                     {/* LOGO */}
-                    <Link to="/" className="flex items-center cursor-pointer group">
-                        <img src={logo} alt="Ork8stra Logo" className="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
+                    <Link to="/" className="flex items-center cursor-pointer group gap-4">
+                        <Ork8straLogo className="w-10 h-10" />
+                        <span className="text-white font-black text-2xl tracking-tighter">Ork8stra</span>
                     </Link>
 
                     {/* DESKTOP LINKS */}
                     <div className="hidden md:flex items-center gap-12">
-                        <NavLink text="Engine" hasDropdown />
-                        <NavLink text="Infrastructure" />
-                        <NavLink text="Network" />
-                        <NavLink text="Specs" />
+                        <NavLink text="Features" />
+                        <NavLink text="Documentation" />
+                        <NavLink text="GitHub" />
                     </div>
 
                     {/* ACTIONS */}
@@ -49,7 +49,7 @@ export default function Navbar() {
                             Sign In
                         </Link>
                         <Link to="/register" className="px-8 py-3.5 rounded-xl bg-white text-black text-xs font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 shadow-2xl">
-                            Initialize
+                            Get Started
                         </Link>
                     </div>
 

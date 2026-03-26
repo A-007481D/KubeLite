@@ -39,7 +39,7 @@ export default function SecurityDashboard({ _org: __org, _activeTab: __activeTab
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-                        <Shield className="w-8 h-8 text-purple-500" />
+                        {/* <Shield className="w-8 h-8 text-purple-500" /> */}
                         Governance & Security
                     </h1>
                     <p className="text-[#666] mt-1">Platform-wide policy compliance and automated risk assessment.</p>
