@@ -11,6 +11,8 @@ import com.ork8stra.projectmanagement.Project;
 import com.ork8stra.projectmanagement.ProjectService;
 import com.ork8stra.deploymentengine.Deployment;
 import com.ork8stra.deploymentengine.DeploymentService;
+import com.ork8stra.user.User;
+import com.ork8stra.user.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -54,6 +56,9 @@ class BuildControllerTest {
     @MockitoBean
     private DeploymentService deploymentService;
 
+    @MockitoBean
+    private UserRepository userRepository;
+
     @Test
     @WithMockUser
     void shouldTriggerBuildSuccessfully() throws Exception {
@@ -70,8 +75,13 @@ class BuildControllerTest {
         mockBuild.setStatus(BuildStatus.RUNNING);
         mockBuild.setJobName("build-frontend-app-abc123");
 
+        User mockUser = new User();
+        mockUser.setId(UUID.randomUUID());
+        mockUser.setUsername("user");
+
         when(applicationService.getApplication(appId)).thenReturn(mockApp);
         when(projectService.getProjectById(projectId)).thenReturn(mockProject);
+        when(userRepository.findByUsernameIgnoreCase("user")).thenReturn(java.util.Optional.of(mockUser));
         
         Deployment mockDeployment = new Deployment(appId, "HEAD");
         when(deploymentService.triggerBuildDeployment(eq(mockApp), eq(mockProject), any(String.class), any(UUID.class))).thenReturn(mockDeployment);
