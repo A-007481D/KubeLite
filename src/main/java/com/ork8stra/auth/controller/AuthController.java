@@ -43,7 +43,7 @@ public class AuthController {
 
     @GetMapping("/github/url")
     public ResponseEntity<Map<String, String>> getGithubAuthUrl() {
-        String url = githubService.generateAuthUrl() + "&prompt=consent"; // force prompt for tests
+        String url = githubService.generateAuthUrl() + "&prompt=consent";
         return ResponseEntity.ok(Map.of("url", url));
     }
 

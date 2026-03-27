@@ -467,7 +467,7 @@ const ServiceDetail = ({ service, project, token, onUpdate, onDelete }: { servic
 
         setLogs([]);
 
-        const url = `/api/v1/apps/${service.id}/build/${selectedBuild.id}/logs`;
+        const url = `/api/v1/apps/${service.id}/build/${selectedBuild.id}/logs?token=${token}`;
         const eventSource = new EventSource(url);
 
         const appendLog = (line: string) => {
@@ -1024,7 +1024,7 @@ export default function Dashboard() {
                 }
             }
         } catch (e) { console.error(e); }
-    }, [token, handleAuthError]); // Remove viewState dependency to break the loop
+    }, [token, viewState, handleAuthError]);
 
     useEffect(() => {
         fetchOrgs();

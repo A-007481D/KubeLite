@@ -3,6 +3,7 @@ package com.ork8stra.api.controller;
 import com.ork8stra.applicationmanagement.Application;
 import com.ork8stra.applicationmanagement.ApplicationService;
 import com.ork8stra.auth.security.JwtTokenProvider;
+import com.ork8stra.auth.security.RbacService;
 import com.ork8stra.buildengine.Build;
 import com.ork8stra.buildengine.BuildLogService;
 import com.ork8stra.buildengine.BuildService;
@@ -57,10 +58,10 @@ class BuildControllerTest {
     private DeploymentService deploymentService;
 
     @MockitoBean
-    private UserRepository userRepository;
+    private RbacService rbacService;
 
     @Test
-    @WithMockUser
+    @WithMockUser(username = "user")
     void shouldTriggerBuildSuccessfully() throws Exception {
         UUID appId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
@@ -81,7 +82,10 @@ class BuildControllerTest {
 
         when(applicationService.getApplication(appId)).thenReturn(mockApp);
         when(projectService.getProjectById(projectId)).thenReturn(mockProject);
-        when(userRepository.findByUsernameIgnoreCase("user")).thenReturn(java.util.Optional.of(mockUser));
+        when(rbacService.getCurrentUser()).thenReturn(mockUser);
+        
+        // Mock permission check
+        when(rbacService.hasApplicationPermission(eq(appId), any(String.class))).thenReturn(true);
         
         Deployment mockDeployment = new Deployment(appId, "HEAD");
         when(deploymentService.triggerBuildDeployment(eq(mockApp), eq(mockProject), any(String.class), any(UUID.class))).thenReturn(mockDeployment);

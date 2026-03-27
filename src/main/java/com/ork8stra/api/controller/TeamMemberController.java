@@ -19,6 +19,7 @@ import java.util.UUID;
 public class TeamMemberController {
 
     private final TeamService teamService;
+    private final com.ork8stra.auth.security.RbacService rbacService;
     private final UserRepository userRepository;
 
     @GetMapping
@@ -37,8 +38,10 @@ public class TeamMemberController {
             @RequestParam String email,
             @RequestParam String role) {
         
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalArgumentException("User with email " + email + " not found"));
+        User user = rbacService.findUserByIdentifier(email);
+        if (user == null) {
+            throw new IllegalArgumentException("User with email/username " + email + " not found");
+        }
         
         TeamMember member = teamService.addTeamMember(teamId, user.getId(), role);
         return ResponseEntity.ok(toResponse(member));

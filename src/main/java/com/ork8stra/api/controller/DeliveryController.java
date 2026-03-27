@@ -18,6 +18,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @RestController
 @RequestMapping("/api/v1/delivery")
 @RequiredArgsConstructor
@@ -27,10 +32,19 @@ public class DeliveryController {
     private final ApplicationRepository applicationRepository;
     private final ProjectRepository projectRepository;
     private final com.ork8stra.deploymentengine.DeploymentRepository deploymentRepository;
+    private final com.ork8stra.auth.security.RbacService rbacService;
 
     @GetMapping("/builds")
+    @PreAuthorize("isAuthenticated()")
     public List<BuildInfo> getBuilds() {
+        List<UUID> accessibleProjectIds = rbacService.getUserAccessibleProjectIds();
+        Set<UUID> accessibleAppIds = applicationRepository.findAll().stream()
+                .filter(a -> accessibleProjectIds.contains(a.getProjectId()))
+                .map(com.ork8stra.applicationmanagement.Application::getId)
+                .collect(Collectors.toSet());
+
         return buildRepository.findAll().stream()
+                .filter(b -> accessibleAppIds.contains(b.getApplicationId()))
                 .map(this::toInfo)
                 .sorted(Comparator.comparing(BuildInfo::getStartTime, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
@@ -48,7 +62,7 @@ public class DeliveryController {
 
         UUID deploymentId = deploymentRepository.findByApplicationId(b.getApplicationId())
                 .stream()
-                .filter(d -> d.getVersion().equals(b.getImageTag()))
+                .filter(d -> Objects.equals(d.getVersion(), b.getImageTag()))
                 .map(com.ork8stra.deploymentengine.Deployment::getId)
                 .findFirst()
                 .orElse(null);

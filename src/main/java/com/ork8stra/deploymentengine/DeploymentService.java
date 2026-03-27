@@ -207,8 +207,11 @@ public class DeploymentService {
         @Transactional
         public void reconcileLatestDeployment(Application app, Project project, Deployment deployment) {
                 try {
+                        // Re-fetch app to avoid LazyInitializationException for envVars
+                        Application attachedApp = applicationService.getApplication(app.getId());
+                        
                         String namespace = project.getK8sNamespace();
-                        String deploymentName = resolveDeploymentName(app, project);
+                        String deploymentName = resolveDeploymentName(attachedApp, project);
                         var k8sDeployment = kubernetesClient.apps().deployments().inNamespace(namespace).withName(deploymentName).get();
                         
                         if (k8sDeployment == null) {
@@ -270,6 +273,41 @@ public class DeploymentService {
                 }
 
                 updateLatestDeploymentStatus(app.getId(), DeploymentStatus.RESTARTING, 1);
+        }
+
+        public void updateRoutingOnly(Application app, Project project, int newPort) {
+                String namespace = project.getK8sNamespace();
+                String resourceName = toKubernetesName(app.getName());
+                
+                log.info("Smart Routing: Updating Service and Ingress for {} to port {}", resourceName, newPort);
+
+                // 1. Update Service
+                kubernetesClient.services().inNamespace(namespace).withName(resourceName + "-svc").edit(s -> 
+                        new ServiceBuilder(s)
+                                .editSpec()
+                                        .editMatchingPort(p -> "http".equals(p.getName()))
+                                                .withTargetPort(new IntOrString(newPort))
+                                        .endPort()
+                                .endSpec()
+                                .build()
+                );
+
+                // 2. Update Ingress
+                String host = buildIngressHost(project, app);
+                kubernetesClient.network().v1().ingresses().inNamespace(namespace).withName(resourceName + "-ingress").edit(i ->
+                        new IngressBuilder(i)
+                                .editMetadata()
+                                        .addToAnnotations("ork8stra.com/last-port-update", Instant.now().toString())
+                                .endMetadata()
+                                .editSpec()
+                                        .editFirstRule()
+                                                .withHost(host)
+                                        .endRule()
+                                .endSpec()
+                                .build()
+                );
+                
+                log.info("Smart Routing: Successfully updated infrastructure for {} to port {}", resourceName, newPort);
         }
 
         private String applyRuntimeResources(Application app, Project project, String imageTag, int replicas) {
@@ -832,13 +870,15 @@ public class DeploymentService {
         }
 
         private String toKubernetesName(String rawName) {
-                String normalized = rawName.toLowerCase().replaceAll("[^a-z0-9-]", "-")
+                if (rawName == null) return "app";
+                String normalized = rawName.toLowerCase()
+                                .replaceAll("[^a-z0-9-]", "-")
                                 .replaceAll("-+", "-")
                                 .replaceAll("^-|-$", "");
                 return normalized.isBlank() ? "app" : normalized;
         }
 
-        private String toDnsLabel(String value) {
-                return toKubernetesName(value);
+        private String toDnsLabel(String name) {
+                return toKubernetesName(name);
         }
 }

@@ -21,6 +21,7 @@ import java.util.UUID;
 public class OrgMemberController {
 
     private final OrganizationService organizationService;
+    private final com.ork8stra.auth.security.RbacService rbacService;
     private final UserRepository userRepository;
 
     @GetMapping
@@ -40,8 +41,7 @@ public class OrgMemberController {
             @RequestParam OrgRole role) {
         
         try {
-            User user = userRepository.findByEmailIgnoreCase(email)
-                    .orElse(null);
+            User user = rbacService.findUserByIdentifier(email);
             
             if (user == null) {
                 // User doesn't exist, create a pending invitation

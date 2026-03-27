@@ -8,8 +8,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,26 +18,28 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrganizationController {
     private final OrganizationService organizationService;
-    private final com.ork8stra.user.UserRepository userRepository;
+    private final com.ork8stra.auth.security.RbacService rbacService;
 
     @PostMapping
     public ResponseEntity<OrganizationResponse> createOrganization(
-            @Valid @RequestBody CreateOrganizationRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @Valid @RequestBody CreateOrganizationRequest request) {
 
-        com.ork8stra.user.User user = userRepository.findByUsernameIgnoreCase(userDetails.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        com.ork8stra.user.User user = rbacService.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User not found or unauthenticated");
+        }
 
         Organization org = organizationService.createOrganization(request.getName(), user.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(org));
     }
 
     @GetMapping
-    public ResponseEntity<List<OrganizationResponse>> getMyOrganizations(
-            @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<List<OrganizationResponse>> getMyOrganizations() {
 
-        com.ork8stra.user.User user = userRepository.findByUsernameIgnoreCase(userDetails.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        com.ork8stra.user.User user = rbacService.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User not found or unauthenticated");
+        }
 
         List<OrganizationResponse> responses = organizationService.getOrganizationsByOwner(user.getId())
                 .stream()
@@ -51,11 +51,12 @@ public class OrganizationController {
 
     @PostMapping("/join/{token}")
     public ResponseEntity<OrganizationResponse> joinOrganization(
-            @PathVariable String token,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @PathVariable String token) {
         
-        com.ork8stra.user.User user = userRepository.findByUsernameIgnoreCase(userDetails.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        com.ork8stra.user.User user = rbacService.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User not found or unauthenticated");
+        }
 
         Organization org = organizationService.acceptInvitation(token, user.getId());
         return ResponseEntity.ok(toResponse(org));

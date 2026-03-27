@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -27,24 +29,74 @@ public class IAMController {
     private final OrgMemberRepository orgMemberRepository;
     private final AuditLogRepository auditLogRepository;
     private final com.ork8stra.teammanagement.TeamRepository teamRepository;
+    private final com.ork8stra.auth.security.RbacService rbacService;
 
     @GetMapping("/summary")
-    @PreAuthorize("hasRole('ADMIN')")
- // Only global admins can see the full IAM summary
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<IAMSummaryResponse> getSummary() {
+        com.ork8stra.user.User currentUser = rbacService.getCurrentUser();
+        if (currentUser == null) return ResponseEntity.status(401).build();
+
+        if (currentUser.isAdmin()) {
+            return ResponseEntity.ok(IAMSummaryResponse.builder()
+                    .totalUsers(userRepository.count())
+                    .activeOrganizations(organizationRepository.count())
+                    .totalPolicies(orgPolicyRepository.count())
+                    .pendingInvitations(orgInvitationRepository.countByStatus(OrgInvitation.InvitationStatus.PENDING))
+                    .auditLogCount(auditLogRepository.count())
+                    .build());
+        }
+
+        List<UUID> orgIds = orgMemberRepository.findByUserId(currentUser.getId()).stream()
+                .map(OrgMember::getOrganizationId)
+                .toList();
+
+        long userCount = orgMemberRepository.findAll().stream()
+                .filter(m -> orgIds.contains(m.getOrganizationId()))
+                .map(OrgMember::getUserId)
+                .distinct()
+                .count();
+
+        long auditCount = auditLogRepository.findAll().stream()
+                .filter(log -> log.getOrganizationId() != null && orgIds.contains(log.getOrganizationId()))
+                .count();
+
         return ResponseEntity.ok(IAMSummaryResponse.builder()
-                .totalUsers(userRepository.count())
-                .activeOrganizations(organizationRepository.count())
-                .totalPolicies(orgPolicyRepository.count())
-                .pendingInvitations(orgInvitationRepository.countByStatus(OrgInvitation.InvitationStatus.PENDING))
-                .auditLogCount(auditLogRepository.count())
+                .totalUsers(userCount)
+                .activeOrganizations(orgIds.size())
+                .totalPolicies(orgPolicyRepository.findAll().stream()
+                        .filter(p -> p.getOrganizationId() != null && orgIds.contains(p.getOrganizationId()))
+                        .count())
+                .pendingInvitations(orgInvitationRepository.findAll().stream()
+                        .filter(i -> orgIds.contains(i.getOrganizationId()) && i.getStatus() == OrgInvitation.InvitationStatus.PENDING)
+                        .count())
+                .auditLogCount(auditCount)
                 .build());
     }
 
     @GetMapping("/users")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<UserIdentityResponse>> listUsers() {
-        List<UserIdentityResponse> users = userRepository.findAll().stream()
+        com.ork8stra.user.User currentUser = rbacService.getCurrentUser();
+        if (currentUser == null) return ResponseEntity.status(401).build();
+
+        List<com.ork8stra.user.User> targetUsers;
+        if (currentUser.isAdmin()) {
+            targetUsers = userRepository.findAll();
+        } else {
+            List<UUID> orgIds = orgMemberRepository.findByUserId(currentUser.getId()).stream()
+                    .map(OrgMember::getOrganizationId)
+                    .toList();
+            
+            java.util.Set<UUID> userIdsInOrgs = orgMemberRepository.findAll().stream()
+                    .filter(m -> orgIds.contains(m.getOrganizationId()))
+                    .map(OrgMember::getUserId)
+                    .collect(java.util.stream.Collectors.toSet());
+            
+            targetUsers = userRepository.findAllById(userIdsInOrgs);
+        }
+
+        List<UserIdentityResponse> responses = targetUsers.stream()
                 .map(user -> {
                     List<OrgMember> memberships = orgMemberRepository.findByUserId(user.getId());
                     
@@ -57,7 +109,7 @@ public class IAMController {
                                         .role(m.getRole())
                                         .build();
                             })
-                            .collect(Collectors.toList());
+                            .toList();
 
                     return UserIdentityResponse.builder()
                             .id(user.getId())
@@ -68,11 +120,10 @@ public class IAMController {
                             .memberships(orgMemberships)
                             .build();
                 })
-                .collect(Collectors.toList());
+                .toList();
         
-        return ResponseEntity.ok(users);
+        return ResponseEntity.ok(responses);
     }
-
 
     @GetMapping("/debug-me")
     public ResponseEntity<?> debugMe(org.springframework.security.core.Authentication auth) {
@@ -85,26 +136,78 @@ public class IAMController {
     }
 
     @GetMapping("/policies")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<OrgPolicy>> listGlobalPolicies() {
-        return ResponseEntity.ok(orgPolicyRepository.findAll());
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OrgPolicy>> listPolicies() {
+        com.ork8stra.user.User currentUser = rbacService.getCurrentUser();
+        if (currentUser == null) return ResponseEntity.status(401).build();
+
+        if (currentUser.isAdmin()) {
+            return ResponseEntity.ok(orgPolicyRepository.findAll());
+        }
+
+        List<UUID> orgIds = orgMemberRepository.findByUserId(currentUser.getId()).stream()
+                .map(OrgMember::getOrganizationId)
+                .toList();
+
+        return ResponseEntity.ok(orgPolicyRepository.findAll().stream()
+                .filter(p -> p.getOrganizationId() != null && orgIds.contains(p.getOrganizationId()))
+                .toList());
     }
 
     @GetMapping("/audit-logs")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<com.ork8stra.audit.AuditLog>> listAuditLogs() {
-        return ResponseEntity.ok(auditLogRepository.findAllByOrderByCreatedAtDesc());
+        com.ork8stra.user.User currentUser = rbacService.getCurrentUser();
+        if (currentUser == null) return ResponseEntity.status(401).build();
+
+        if (currentUser.isAdmin()) {
+            return ResponseEntity.ok(auditLogRepository.findAllByOrderByCreatedAtDesc());
+        }
+
+        List<UUID> orgIds = orgMemberRepository.findByUserId(currentUser.getId()).stream()
+                .map(OrgMember::getOrganizationId)
+                .toList();
+
+        return ResponseEntity.ok(auditLogRepository.findAllByOrderByCreatedAtDesc().stream()
+                .filter(log -> log.getOrganizationId() != null && orgIds.contains(log.getOrganizationId()))
+                .toList());
     }
 
     @GetMapping("/teams")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<com.ork8stra.teammanagement.Team>> listAllTeams() {
-        return ResponseEntity.ok(teamRepository.findAll());
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<com.ork8stra.teammanagement.Team>> listTeams() {
+        com.ork8stra.user.User currentUser = rbacService.getCurrentUser();
+        if (currentUser == null) return ResponseEntity.status(401).build();
+
+        if (currentUser.isAdmin()) {
+            return ResponseEntity.ok(teamRepository.findAll());
+        }
+
+        List<UUID> orgIds = orgMemberRepository.findByUserId(currentUser.getId()).stream()
+                .map(OrgMember::getOrganizationId)
+                .toList();
+
+        return ResponseEntity.ok(teamRepository.findAll().stream()
+                .filter(t -> orgIds.contains(t.getOrganizationId()))
+                .toList());
     }
 
     @GetMapping("/invitations")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<OrgInvitation>> listAllInvitations() {
-        return ResponseEntity.ok(orgInvitationRepository.findAll());
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<OrgInvitation>> listInvitations() {
+        com.ork8stra.user.User currentUser = rbacService.getCurrentUser();
+        if (currentUser == null) return ResponseEntity.status(401).build();
+
+        if (currentUser.isAdmin()) {
+            return ResponseEntity.ok(orgInvitationRepository.findAll());
+        }
+
+        List<UUID> orgIds = orgMemberRepository.findByUserId(currentUser.getId()).stream()
+                .map(OrgMember::getOrganizationId)
+                .toList();
+
+        return ResponseEntity.ok(orgInvitationRepository.findAll().stream()
+                .filter(i -> orgIds.contains(i.getOrganizationId()))
+                .toList());
     }
 }

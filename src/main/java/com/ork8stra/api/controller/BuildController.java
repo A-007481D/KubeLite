@@ -11,12 +11,13 @@ import com.ork8stra.buildengine.BuildService;
 import com.ork8stra.projectmanagement.Project;
 import com.ork8stra.projectmanagement.ProjectService;
 import com.ork8stra.user.User;
-import com.ork8stra.user.UserRepository;
+import com.ork8stra.auth.security.RbacService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -36,7 +37,7 @@ public class BuildController {
     private final BuildService buildService;
     private final BuildLogService buildLogService;
     private final DeploymentService deploymentService;
-    private final UserRepository userRepository;
+    private final RbacService rbacService;
 
     @Value("${kubelite.image.repository:ttl.sh}")
     private String imageRepository;
@@ -44,13 +45,16 @@ public class BuildController {
     @Value("${kubelite.image.ttl:24h}")
     private String ttlShTagTtl;
 
+    @PreAuthorize("@rbacService.hasApplicationPermission(#appId, 'service:manage')")
     @PostMapping
-    public ResponseEntity<BuildResponse> triggerBuild(@PathVariable UUID appId, @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<BuildResponse> triggerBuild(@PathVariable UUID appId) {
         Application app = applicationService.getApplication(appId);
         Project project = projectService.getProjectById(app.getProjectId());
 
-        User user = userRepository.findByUsernameIgnoreCase(userDetails.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = rbacService.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User not found or unauthenticated");
+        }
 
         String imageTag = resolveImageTag(app);
 
@@ -63,18 +67,21 @@ public class BuildController {
         return ResponseEntity.accepted().body(BuildResponse.from(build, deployment.getId()));
     }
 
+    @PreAuthorize("@rbacService.hasApplicationPermission(#appId, 'service:view')")
     @GetMapping
     public ResponseEntity<List<BuildResponse>> listBuilds(@PathVariable UUID appId) {
         List<Build> builds = buildService.getBuildsForApplication(appId);
         return ResponseEntity.ok(builds.stream().map(BuildResponse::from).toList());
     }
 
+    @PreAuthorize("@rbacService.hasApplicationPermission(#appId, 'service:view')")
     @GetMapping("/{buildId}")
     public ResponseEntity<BuildResponse> getBuild(@PathVariable UUID appId, @PathVariable UUID buildId) {
         Build build = buildService.getBuild(buildId);
         return ResponseEntity.ok(BuildResponse.from(build));
     }
 
+    @PreAuthorize("@rbacService.hasApplicationPermission(#appId, 'service:view')")
     @GetMapping(value = "/{buildId}/logs", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamBuildLogs(@PathVariable UUID appId, @PathVariable UUID buildId) {
         return buildLogService.streamLogs(buildId);

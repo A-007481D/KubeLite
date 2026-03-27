@@ -44,6 +44,11 @@ public class ApplicationService {
     }
 
     @Transactional
+    public Application updateApplication(Application app) {
+        return applicationRepository.save(app);
+    }
+
+    @Transactional
     public Application updateApplication(UUID applicationId, String gitRepoUrl, String buildBranch,
             String dockerfilePath, String startCommand, Integer containerPort, Map<String, String> envVars) {
         Application app = getApplication(applicationId);

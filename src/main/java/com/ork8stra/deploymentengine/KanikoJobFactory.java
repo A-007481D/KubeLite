@@ -216,8 +216,9 @@ public class KanikoJobFactory {
 
     private String buildCloneCommand(String gitUrl, String branch) {
         return String.format(
-                "set -eu; git clone --depth 1 -b \"%s\" \"%s\" .",
+                "set -eu; git clone --depth 1 -b \"%s\" \"%s\" . || git clone --depth 1 \"%s\" .",
                 escapeForDoubleQuotes(branch),
+                escapeForDoubleQuotes(gitUrl),
                 escapeForDoubleQuotes(gitUrl));
     }
 
@@ -233,8 +234,26 @@ public class KanikoJobFactory {
                 + "  echo \"Trying to generate Dockerfile using Nixpacks...\"\n"
                 + "  apt-get update && apt-get install -y curl ca-certificates\n"
                 + "  curl -sSL https://nixpacks.com/install.sh | bash\n"
-                + "  # Nixpacks build --out generates the .nixpacks/Dockerfile without building an image\n"
-                + "  /usr/local/bin/nixpacks build \"$TARGET_DIR\" --out \"$TARGET_DIR\" --name app\n"
+                + "  # If Nixpacks fails at root, try to find a subdirectory with a project marker\n"
+                + "  if ! /usr/local/bin/nixpacks build \"$TARGET_DIR\" --out \"$TARGET_DIR\" --name app; then\n"
+                + "    echo \"Root build plan failed, searching subdirectories for project markers...\"\n"
+                + "    # Common markers: package.json, pom.xml, requirements.txt, go.mod, Cargo.toml\n"
+                + "    SUB_DIR=$(find \"$TARGET_DIR\" -maxdepth 2 -name \"package.json\" -o -name \"pom.xml\" -o -name \"requirements.txt\" -o -name \"go.mod\" -o -name \"Cargo.toml\" | head -1 | xargs dirname 2>/dev/null || true)\n"
+                + "    if [ -n \"$SUB_DIR\" ] && [ \"$SUB_DIR\" != \"$TARGET_DIR\" ]; then\n"
+                + "      echo \"Found project marker in $SUB_DIR, attempting build and hoisting...\"\n"
+                + "      /usr/local/bin/nixpacks build \"$SUB_DIR\" --out \"$SUB_DIR\" --name app\n"
+                + "      if [ -f \"$SUB_DIR/.nixpacks/Dockerfile\" ]; then\n"
+                + "        # Hoist everything from SUB_DIR to TARGET_DIR\n"
+                + "        # First, preserve the generated Dockerfile\n"
+                + "        mv \"$SUB_DIR/.nixpacks/Dockerfile\" \"$AUTO_DOCKERFILE\"\n"
+                + "        # Move files to a temp location then to root to avoid moving into self\n"
+                + "        mkdir -p /tmp/hoist && mv \"$SUB_DIR\"/* /tmp/hoist/ 2>/dev/null || true\n"
+                + "        mv \"$SUB_DIR\"/.* /tmp/hoist/ 2>/dev/null || true\n"
+                + "        mv /tmp/hoist/* \"$TARGET_DIR/\" 2>/dev/null || true\n"
+                + "        mv /tmp/hoist/.* \"$TARGET_DIR/\" 2>/dev/null || true\n"
+                + "      fi\n"
+                + "    fi\n"
+                + "  fi\n"
                 + "  \n"
                 + "  # Nixpacks build --out creates a .nixpacks directory with the Dockerfile inside\n"
                 + "  if [ -f \"$TARGET_DIR/.nixpacks/Dockerfile\" ]; then\n"

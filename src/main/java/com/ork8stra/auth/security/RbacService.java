@@ -7,6 +7,7 @@ import com.ork8stra.organizationmanagement.*;
 import com.ork8stra.projectmanagement.Project;
 import com.ork8stra.projectmanagement.ProjectRepository;
 import com.ork8stra.teammanagement.Team;
+import com.ork8stra.teammanagement.TeamMember;
 import com.ork8stra.teammanagement.TeamMemberRepository;
 import com.ork8stra.teammanagement.TeamRepository;
 import com.ork8stra.user.User;
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,6 +40,12 @@ public class RbacService {
         if (currentUser == null) {
             log.warn("RBAC: No current user found in security context");
             return false;
+        }
+
+        // Platform Admin Bypass
+        if (currentUser.isAdmin()) {
+            log.info("RBAC: Granting PLATFORM_ADMIN bypass for user {}", currentUser.getUsername());
+            return true;
         }
 
         // Developer/Owner Bypass: If user is the organization owner, grant all access
@@ -74,7 +82,22 @@ public class RbacService {
         User currentUser = getCurrentUser();
         if (currentUser == null) return false;
 
-        return teamMemberRepository.findByUserIdAndTeamId(currentUser.getId(), teamId).isPresent();
+        // Platform Admin Bypass
+        if (currentUser.isAdmin()) return true;
+
+        // Explicit membership check
+        if (teamMemberRepository.findByUserIdAndTeamId(currentUser.getId(), teamId).isPresent()) {
+            return true;
+        }
+
+        // Org Admin/Owner Bypass
+        Optional<Team> team = teamRepository.findById(teamId);
+        if (team.isPresent()) {
+            UUID orgId = team.get().getOrganizationId();
+            return hasOrgRole(orgId, "ADMIN");
+        }
+
+        return false;
     }
 
     public boolean hasPermission(UUID orgId, String permission) {
@@ -89,6 +112,9 @@ public class RbacService {
     public boolean hasPermission(UUID orgId, UUID teamId, String action, String resource) {
         User currentUser = getCurrentUser();
         if (currentUser == null) return false;
+
+        // Platform Admin Bypass
+        if (currentUser.isAdmin()) return true;
 
         // Developer/Owner Bypass: If user is the organization owner, grant all permissions
         Optional<Organization> org = organizationRepository.findById(orgId);
@@ -145,8 +171,55 @@ public class RbacService {
         return hasProjectPermission(app.get().getProjectId(), action);
     }
 
-    private User getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUsernameIgnoreCase(email).orElse(null);
+    public User findUserByIdentifier(String identifier) {
+        if (identifier == null) return null;
+        return userRepository.findByEmailIgnoreCase(identifier)
+                .or(() -> userRepository.findByUsernameIgnoreCase(identifier))
+                .orElse(null);
+    }
+
+    public User getCurrentUser() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return null;
+        return findUserByIdentifier(auth.getName());
+    }
+
+    public List<UUID> getUserAccessibleProjectIds() {
+        User user = getCurrentUser();
+        if (user == null) return List.of();
+
+        if (user.isAdmin()) {
+            return projectRepository.findAll().stream().map(Project::getId).toList();
+        }
+
+        // All projects in organizations the user is an OWNER or ADMIN of
+        List<UUID> ownedOrgIds = orgMemberRepository.findByUserId(user.getId()).stream()
+                .filter(m -> m.getRole() == OrgRole.ORG_OWNER || m.getRole() == OrgRole.ORG_ADMIN)
+                .map(OrgMember::getOrganizationId)
+                .toList();
+
+        List<UUID> teamIdsFromOrgs = teamRepository.findAll().stream()
+                .filter(t -> ownedOrgIds.contains(t.getOrganizationId()))
+                .map(Team::getId)
+                .toList();
+
+        // Also projects in teams the user is a member of
+        List<UUID> memberTeamIds = teamMemberRepository.findByUserId(user.getId()).stream()
+                .map(TeamMember::getTeamId)
+                .toList();
+        
+        java.util.Set<UUID> allTeamIds = new java.util.HashSet<>(teamIdsFromOrgs);
+        allTeamIds.addAll(memberTeamIds);
+
+        return projectRepository.findAll().stream()
+                .filter(p -> allTeamIds.contains(p.getTeamId()))
+                .map(Project::getId)
+                .toList();
+    }
+
+    public boolean hasTeamPermission(UUID teamId, String action) {
+        Optional<Team> team = teamRepository.findById(teamId);
+        if (team.isEmpty()) return false;
+        return hasPermission(team.get().getOrganizationId(), teamId, action, "arn:kubelite:team:" + teamId);
     }
 }

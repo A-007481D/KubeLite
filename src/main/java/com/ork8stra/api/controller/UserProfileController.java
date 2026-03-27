@@ -9,8 +9,6 @@ import com.ork8stra.user.User;
 import com.ork8stra.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,14 +18,17 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserProfileController {
 
-    private final UserRepository userRepository;
+    private final com.ork8stra.auth.security.RbacService rbacService;
     private final OrgMemberRepository orgMemberRepository;
     private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
 
     @GetMapping
-    public ResponseEntity<UserProfileResponse> getProfile(@AuthenticationPrincipal UserDetails userDetails) {
-        User user = userRepository.findByUsernameIgnoreCase(userDetails.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    public ResponseEntity<UserProfileResponse> getProfile() {
+        User user = rbacService.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User not found or unauthenticated");
+        }
         
         List<OrgMember> memberships = orgMemberRepository.findByUserId(user.getId());
         
@@ -60,17 +61,18 @@ public class UserProfileController {
 
     @PutMapping
     public ResponseEntity<UserProfileResponse> updateProfile(
-            @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody UserProfileUpdate update) {
         
-        User user = userRepository.findByUsernameIgnoreCase(userDetails.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = rbacService.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User not found or unauthenticated");
+        }
         
         if (update.displayName() != null) user.setDisplayName(update.displayName());
         if (update.avatarUrl() != null) user.setAvatarUrl(update.avatarUrl());
         
         userRepository.save(user);
-        return getProfile(userDetails);
+        return getProfile();
     }
 
     public record UserProfileUpdate(String displayName, String avatarUrl) {}

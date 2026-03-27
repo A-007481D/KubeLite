@@ -10,7 +10,6 @@ import com.ork8stra.projectmanagement.Project;
 import com.ork8stra.projectmanagement.ProjectService;
 import com.ork8stra.audit.AuditLog;
 import com.ork8stra.audit.AuditLogRepository;
-import com.ork8stra.user.UserRepository;
 import com.ork8stra.user.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -36,8 +34,8 @@ public class ApplicationController {
     private final DeploymentService deploymentService;
     private final com.ork8stra.deploymentengine.DeploymentRepository deploymentRepository;
     private final AuditLogRepository auditLogRepository;
-    private final UserRepository userRepository;
     private final com.ork8stra.teammanagement.TeamRepository teamRepository;
+    private final com.ork8stra.auth.security.RbacService rbacService;
 
     @PreAuthorize("@rbacService.hasProjectPermission(#projectId, 'project:create_app')")
     @PostMapping("/projects/{projectId}/apps")
@@ -157,8 +155,7 @@ public class ApplicationController {
             com.ork8stra.teammanagement.Team team = teamRepository.findById(project.getTeamId()).orElse(null);
             
             if (team != null) {
-                String email = SecurityContextHolder.getContext().getAuthentication().getName();
-                User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+                User user = rbacService.getCurrentUser();
                 
                 if (user != null) {
                     auditLogRepository.save(AuditLog.builder()

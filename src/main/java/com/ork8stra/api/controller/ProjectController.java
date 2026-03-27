@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,8 +24,8 @@ public class ProjectController {
 
     private final ProjectService projectService;
     private final TeamService teamService;
-    private final com.ork8stra.auth.security.RbacService rbacService;
 
+    @PreAuthorize("@rbacService.hasTeamAccess(#request.getTeamId())")
     @PostMapping
     public ResponseEntity<ProjectResponse> createProject(
             @Valid @RequestBody CreateProjectRequest request) {
@@ -33,6 +34,7 @@ public class ProjectController {
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(project));
     }
 
+    @PreAuthorize("@rbacService.hasTeamAccess(#teamId)")
     @GetMapping
     public ResponseEntity<List<ProjectResponse>> listProjects(@RequestParam UUID teamId) {
         List<ProjectResponse> projects = projectService.getProjectsByTeamId(teamId).stream()
@@ -41,21 +43,17 @@ public class ProjectController {
         return ResponseEntity.ok(projects);
     }
 
+    @PreAuthorize("@rbacService.hasProjectPermission(#id, 'project:view')")
     @GetMapping("/{id}")
     public ResponseEntity<ProjectResponse> getProject(@PathVariable UUID id) {
         Project project = projectService.getProjectById(id);
         return ResponseEntity.ok(toResponse(project));
     }
 
+    @PreAuthorize("@rbacService.hasProjectPermission(#projectId, 'project:delete')")
     @DeleteMapping("/{projectId}")
     public ResponseEntity<Void> deleteProject(
-            @PathVariable UUID projectId,
-            @RequestParam UUID orgId) {
-        Project project = projectService.getProjectById(projectId);
-        if (!rbacService.hasOrgRole(orgId, "ADMIN") && 
-            !rbacService.hasPermission(orgId, project.getTeamId(), "project:delete")) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+            @PathVariable UUID projectId) {
         projectService.deleteProject(projectId);
         return ResponseEntity.noContent().build();
     }

@@ -11,6 +11,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import io.fabric8.kubernetes.api.model.Pod;
+import com.ork8stra.applicationmanagement.Application;
+import com.ork8stra.applicationmanagement.ApplicationService;
+import com.ork8stra.projectmanagement.Project;
+import com.ork8stra.projectmanagement.ProjectService;
 
 import java.util.UUID;
 
@@ -21,6 +26,10 @@ public class ServiceHealthWatcher {
 
     private final KubernetesClient kubernetesClient;
     private final DeploymentRepository deploymentRepository;
+    private final SmartPortReconciler smartPortReconciler;
+    private final DeploymentService deploymentService;
+    private final ApplicationService applicationService;
+    private final ProjectService projectService;
     private ServiceHealthWatcher self;
     private Watch watch;
 
@@ -84,7 +93,41 @@ public class ServiceHealthWatcher {
                 deployment.setReplicas(k8sDeployment.getSpec().getReplicas() != null ? k8sDeployment.getSpec().getReplicas() : 0);
                 deploymentRepository.save(deployment);
             }
+
+            if (newStatus == DeploymentStatus.HEALTHY) {
+                self.performSmartPortReconciliation(appId, k8sDeployment.getMetadata().getNamespace());
+            }
         });
+    }
+
+    @Transactional
+    public void performSmartPortReconciliation(UUID appId, String namespace) {
+        Application app = applicationService.getApplication(appId);
+        Project project = projectService.getProjectById(app.getProjectId());
+        
+        // Find one healthy pod
+        var podList = kubernetesClient.pods().inNamespace(namespace)
+                .withLabel("app", app.getName().toLowerCase().replaceAll("[^a-z0-9-]", "-")
+                                .replaceAll("-+", "-")
+                                .replaceAll("^-|-$", ""))
+                .list().getItems();
+        
+        if (podList.isEmpty()) return;
+        Pod pod = podList.get(0);
+        
+        smartPortReconciler.discoverPort(namespace, pod.getMetadata().getName())
+            .thenAccept(detectedPort -> {
+                if (detectedPort != null && !detectedPort.equals(app.getContainerPort())) {
+                    log.info("Smart Discovery: Port mismatch for app {}. Configured: {}, Detected: {}. Updating...", 
+                        app.getName(), app.getContainerPort(), detectedPort);
+                    
+                    app.setContainerPort(detectedPort);
+                    applicationService.updateApplication(app);
+                    
+                    // Trigger routing update ONLY (no restart)
+                    deploymentService.updateRoutingOnly(app, project, detectedPort);
+                }
+            });
     }
 
     private DeploymentStatus determineStatus(Deployment k8sDeployment) {
@@ -101,22 +144,10 @@ public class ServiceHealthWatcher {
         }
 
         int ready = status.getReadyReplicas() != null ? status.getReadyReplicas() : 0;
-        int unavailable = status.getUnavailableReplicas() != null ? status.getUnavailableReplicas() : 0;
-
         if (ready >= desired) {
             return DeploymentStatus.HEALTHY;
         }
 
-        // Check for actual failure conditions in pods if possible
-        // For now, if we have replicas but none are ready and we have unavailable, stay in IN_PROGRESS
-        // unless we have specific failure signals from k8s status conditions
-        boolean isFailed = status.getConditions() != null && status.getConditions().stream()
-                .anyMatch(c -> "Available".equals(c.getType()) && "False".equals(c.getStatus()) && "MinimumReplicasUnavailable".equals(c.getReason()));
-        
-        // Actually, during a fresh deploy, MinimumReplicasUnavailable is normal.
-        // So we only return UNHEALTHY if it's been in this state for a long time (not handled here) 
-        // or if we see specific error reasons.
-        
         return DeploymentStatus.IN_PROGRESS;
     }
 
