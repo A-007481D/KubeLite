@@ -122,7 +122,7 @@ public class SmartPortReconciler {
         
         // Pattern for local_address and state
         // Handles both IPv4 (8 digits) and IPv6 (32 digits)
-        Pattern pattern = Pattern.compile("^\\s*\\d+:\\s+[0-9A-F]{8,32}:([0-9A-F]{4})\\s+[0-9A-F]{8,32}:[0-9A-F]{4}\\s+0A");
+        Pattern pattern = Pattern.compile("^\\s*\\d+:\\s+[0-9A-Fa-f]{8,32}:([0-9A-Fa-f]{4})\\s+[0-9A-Fa-f]{8,32}:[0-9A-Fa-f]{4}\\s+0A");
 
         for (String line : lines) {
             Matcher m = pattern.matcher(line);
@@ -143,7 +143,7 @@ public class SmartPortReconciler {
         // Heuristic: If multiple, prefer common frontend/app ports
         if (foundPorts.size() > 1) {
             // Priority list: Frontend/Web -> Common App -> API
-            List<Integer> priorities = List.of(8080, 4200, 3000, 4000, 80, 5000, 8000, 3001);
+            List<Integer> priorities = List.of(8080, 8761, 4200, 3000, 5173, 4000, 80, 5000, 8000, 3001);
             for (int p : priorities) {
                 if (foundPorts.contains(p)) return p;
             }
