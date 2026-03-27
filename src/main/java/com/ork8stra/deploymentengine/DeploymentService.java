@@ -282,30 +282,36 @@ public class DeploymentService {
                 log.info("Smart Routing: Updating Service and Ingress for {} to port {}", resourceName, newPort);
 
                 // 1. Update Service
-                kubernetesClient.services().inNamespace(namespace).withName(resourceName + "-svc").edit(s -> 
-                        new ServiceBuilder(s)
-                                .editSpec()
-                                        .editMatchingPort(p -> "http".equals(p.getName()))
-                                                .withTargetPort(new IntOrString(newPort))
-                                        .endPort()
-                                .endSpec()
-                                .build()
-                );
+                var svcResource = kubernetesClient.services().inNamespace(namespace).withName(resourceName + "-svc");
+                if (svcResource.get() != null) {
+                        svcResource.edit(s -> 
+                                new ServiceBuilder(s)
+                                        .editSpec()
+                                                .editMatchingPort(p -> "http".equals(p.getName()))
+                                                        .withTargetPort(new IntOrString(newPort))
+                                                .endPort()
+                                        .endSpec()
+                                        .build()
+                        );
+                }
 
                 // 2. Update Ingress
                 String host = buildIngressHost(project, app);
-                kubernetesClient.network().v1().ingresses().inNamespace(namespace).withName(resourceName + "-ingress").edit(i ->
-                        new IngressBuilder(i)
-                                .editMetadata()
-                                        .addToAnnotations("ork8stra.com/last-port-update", Instant.now().toString())
-                                .endMetadata()
-                                .editSpec()
-                                        .editFirstRule()
-                                                .withHost(host)
-                                        .endRule()
-                                .endSpec()
-                                .build()
-                );
+                var ingResource = kubernetesClient.network().v1().ingresses().inNamespace(namespace).withName(resourceName + "-ingress");
+                if (ingResource.get() != null) {
+                        ingResource.edit(i ->
+                                new IngressBuilder(i)
+                                        .editMetadata()
+                                                .addToAnnotations("ork8stra.com/last-port-update", Instant.now().toString())
+                                        .endMetadata()
+                                        .editSpec()
+                                                .editFirstRule()
+                                                        .withHost(host)
+                                                .endRule()
+                                        .endSpec()
+                                        .build()
+                        );
+                }
                 
                 log.info("Smart Routing: Successfully updated infrastructure for {} to port {}", resourceName, newPort);
         }
@@ -474,7 +480,11 @@ public class DeploymentService {
         private Map<String, String> buildRuntimeEnv(Application app, Project project, int containerPort) {
                 Map<String, String> env = new LinkedHashMap<>();
                 if (app.getEnvVars() != null) {
-                        env.putAll(app.getEnvVars());
+                        app.getEnvVars().forEach((k, v) -> {
+                                if (k != null && v != null) {
+                                        env.put(k, v);
+                                }
+                        });
                 }
 
                 // Automatic Service Discovery for other apps in the same project
